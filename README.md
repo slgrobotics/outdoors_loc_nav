@@ -15,7 +15,7 @@ Run:
 ```
   ros2 launch outdoors_loc_nav outdoors_loc.launch.py
 ```
-or, include:
+or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubot_one/blob/dev/robots/dragger/launch/dragger.localizers.launch.py), for example):
 ```
     outdoors_loc_nav = include_launch(
         "outdoors_loc_nav",
