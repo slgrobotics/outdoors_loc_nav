@@ -1,0 +1,6 @@
+# Example: GPS → base_link offset
+static_transforms:
+  - frame_id: base_link
+    child_frame_id: gps_link
+    translation: [0.15, 0.0, 0.4]
+    rotation: [0.0, 0.0, 0.0]
