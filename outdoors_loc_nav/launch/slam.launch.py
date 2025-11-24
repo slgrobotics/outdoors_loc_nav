@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 def generate_launch_description():
+
     pkg = FindPackageShare('outdoors_loc_nav').find('outdoors_loc_nav')
     params = Path(pkg) / 'params'
 
@@ -16,6 +17,6 @@ def generate_launch_description():
             name='slam_toolbox',
             output='screen',
             parameters=[params / 'slam_toolbox_params.yaml'],
-            remappings=[('/scan', '/scan')]
+            remappings=[('scan', 'scan')]
         )
     ])

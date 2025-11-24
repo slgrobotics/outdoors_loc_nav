@@ -23,7 +23,7 @@ navsat_transform:
     publish_filtered_gps: true
 
     # If this is true, the transform world_frame->utm transform is broadcast for use by other nodes. Defaults to false.
-    broadcast_utm_transform: true
+    broadcast_cartesian_transform: true
 
     # If this is true, the node ignores the IMU data and gets its heading from the odometry source (typically the
     # /odometry/filtered topic coming from one of robot_localization's state estimation nodes). BE CAREFUL when using this!

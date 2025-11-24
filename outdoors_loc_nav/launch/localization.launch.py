@@ -16,9 +16,10 @@ def generate_launch_description():
             name='navsat_transform',
             parameters=[params / 'navsat_params.yaml'],
             remappings=[
-                ('imu/data', '/imu/data'),
-                ('gps/fix', '/gps/fix'),
-                ('gps/filtered', '/gps/filtered')
+                ("imu", "imu/data"),
+                ("gps/fix", "gps/fix"),
+                ("gps/filtered", "gps/filtered"),
+                ("odometry/gps", "odometry/gps"),
             ]
         ),
 
@@ -28,7 +29,8 @@ def generate_launch_description():
             name='ekf_local',
             parameters=[params / 'ekf_params.yaml'],
             remappings=[
-                ('odometry/filtered', '/odometry/local')
+                #('odometry/filtered', 'odometry/local')
+                ("odometry/filtered", "odometry/global")
             ]
         ),
     ])
