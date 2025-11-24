@@ -53,10 +53,10 @@ def generate_launch_description():
             '"  use_sim_time=', use_sim_time
         ]),
 
-        # --- Include localization.launch.py
+        # --- Include navsat_and_ekf.launch.py
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
-                str(Path(pkg) / 'launch' / 'localization.launch.py')
+                str(Path(pkg) / 'launch' / 'navsat_and_ekf.launch.py')
             ),
             launch_arguments={
                 'namespace': namespace,
