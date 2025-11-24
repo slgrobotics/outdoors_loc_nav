@@ -1,15 +1,17 @@
 *Please visit [main project Wiki pages](https://github.com/slgrobotics/articubot_one/wiki) for details*
 
-## Outdoors SLAM Toolbox Localization Bringup
+## Outdoors Localization Bringup
 
 **See** https://github.com/slgrobotics/articubot_one/wiki/Outdoors-Package-Template
 
 This package launches a full outdoor-capable localization stack:
 - NavSat transform
 - EKF fusion
-- SLAM Toolbox mapping
+- SLAM Toolbox OR Map Server
 
 You need to launch *your robot* and *navigation stack* separately.
+
+Your robot may launch a "local" EKF node, to fuse IMU + EKF and publish */odometry/local* topic, used indoors. This package doesn't use or depend on it.
 
 Run:
 ```
