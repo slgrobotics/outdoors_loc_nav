@@ -11,7 +11,8 @@ This package launches a full outdoor-capable localization stack:
 
 You need to launch *your robot* and *navigation stack* separately.
 
-Your robot may launch a "local" EKF node, to fuse IMU + EKF and publish */odometry/local* topic, used indoors. This package doesn't use or depend on it.
+Your robot may launch a "*local*" EKF node, to fuse *IMU + EKF* and publish */odometry/local* topic, used indoors.
+This package doesn't use or depend on it, but your robot might.
 
 Run:
 ```
