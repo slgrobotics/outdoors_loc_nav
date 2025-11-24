@@ -4,6 +4,9 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
+#
+# SLAM Toolbox launch file for outdoors localization.
+#  
 
 def generate_launch_description():
 
