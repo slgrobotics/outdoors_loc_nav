@@ -33,11 +33,25 @@ def generate_launch_description():
             '"  use_sim_time=', use_sim_time
         ]),
 
+        # --- Include localization.launch.py
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(str(Path(pkg) / 'launch' / 'localization.launch.py'))
+            PythonLaunchDescriptionSource(
+                str(Path(pkg) / 'launch' / 'localization.launch.py')
+            ),
+            launch_arguments={
+                'namespace': namespace,
+                'use_sim_time': use_sim_time,
+            }.items()
         ),
 
+        # --- Include slam.launch.py
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(str(Path(pkg) / 'launch' / 'slam.launch.py'))
+            PythonLaunchDescriptionSource(
+                str(Path(pkg) / 'launch' / 'slam.launch.py')
+            ),
+            launch_arguments={
+                'namespace': namespace,
+                'use_sim_time': use_sim_time,
+            }.items()
         ),
     ])
