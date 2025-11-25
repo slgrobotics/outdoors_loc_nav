@@ -10,9 +10,6 @@ This package launches a full outdoor-capable localization stack:
 
 You need to launch *your robot* and *navigation stack* separately.
 
-Your robot may launch a "*local*" EKF node, to fuse *IMU + EKF* and publish */odometry/local* topic, used indoors.
-This package doesn't use or depend on it, but your robot might.
-
 **Note:** Your robot may already launch a *local EKF node* to fuse IMU and wheel odometry and publish the */odometry/local* topic.
 It would also publish a *odom → base_link* transform, which is important for the rest of the system.
 That’s the typical setup for indoor navigation. This package neither uses nor depends on that EKF, though your robot might rely on it indoors.
@@ -21,7 +18,7 @@ When operating *only outdoors* — with a reliable GPS signal — publishing thi
 
 ### How to use
 
-Clone the repository to your robot's workspace, build (see example [below](https://github.com/slgrobotics/outdoors_loc_nav/main/README.md#testing)).
+Clone the repository to your robot's workspace, build (see example [below](https://github.com/slgrobotics/outdoors_loc_nav/blob/main/README.md#testing)).
 
 Run:
 ```
