@@ -42,7 +42,7 @@ def generate_launch_description():
         ),
 
         LogInfo(msg=[
-            '============ outdoors_loc_nav: starting SLAM Toolbox  namespace="', namespace,
+            '============ [outdoors_loc_nav]  starting SLAM Toolbox  namespace="', namespace,
             '"  use_sim_time=', use_sim_time,
             '  params=', slam_toolbox_params_file
         ]),

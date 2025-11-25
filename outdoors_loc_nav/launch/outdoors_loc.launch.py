@@ -1,9 +1,10 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, LogInfo
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.substitutions import FindPackageShare
 from pathlib import Path
+from launch.conditions import IfCondition
 
 #
 # Top-level launch file to start outdoors localization + SLAM.
@@ -21,7 +22,8 @@ from pathlib import Path
 #         ['launch', 'outdoors_loc.launch.py'],
 #         {
 #             'use_sim_time': use_sim_time,
-#             'namespace': namespace
+#             'namespace': namespace,
+#             'localizer': 'slam_toolbox',   # or 'amcl' or 'map_server' (default)
 #         }
 #     )
 #
@@ -33,6 +35,7 @@ def generate_launch_description():
     # Launch arguments (can be overridden)
     namespace = LaunchConfiguration('namespace', default='')
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
+    localizer = LaunchConfiguration('localizer', default='map_server')
 
     return LaunchDescription([
 
@@ -48,9 +51,16 @@ def generate_launch_description():
             description='Top-level namespace for multi-robot deployment'
         ),
 
+        DeclareLaunchArgument(
+            'localizer',
+            default_value='map_server',
+            description='choose localizer: slam, amcl, or map_server'
+        ),
+
         LogInfo(msg=[
             '============ starting OUTDOOR_LOC_NAV  namespace="', namespace,
-            '"  use_sim_time=', use_sim_time
+            '"  use_sim_time=', use_sim_time,
+            '"  localizer=', localizer,
         ]),
 
         # --- Include navsat_and_ekf.launch.py
@@ -64,16 +74,17 @@ def generate_launch_description():
             }.items()
         ),
 
-        # # --- Include slam.launch.py
-        # IncludeLaunchDescription(
-        #     PythonLaunchDescriptionSource(
-        #         str(Path(pkg) / 'launch' / 'slam.launch.py')
-        #     ),
-        #     launch_arguments={
-        #         'namespace': namespace,
-        #         'use_sim_time': use_sim_time,
-        #     }.items()
-        # ),
+        # --- Include slam.launch.py
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                str(Path(pkg) / 'launch' / 'slam.launch.py')
+            ),
+            launch_arguments={
+                'namespace': namespace,
+                'use_sim_time': use_sim_time,
+            }.items(),
+            condition=IfCondition(PythonExpression(["'", localizer, "' == 'slam_toolbox'"]))
+        ),
 
         # --- Include map_server.launch.py
         IncludeLaunchDescription(
@@ -83,6 +94,19 @@ def generate_launch_description():
             launch_arguments={
                 'namespace': namespace,
                 'use_sim_time': use_sim_time,
-            }.items()
+            }.items(),
+            condition=IfCondition(PythonExpression(["'", localizer, "' == 'map_server'"]))
+        ),
+
+        # --- Include amcl.launch.py
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                str(Path(pkg) / 'launch' / 'amcl.launch.py')
+            ),
+            launch_arguments={
+                'namespace': namespace,
+                'use_sim_time': use_sim_time,
+            }.items(),
+            condition=IfCondition(PythonExpression(["'", localizer, "' == 'amcl'"]))
         ),
     ])

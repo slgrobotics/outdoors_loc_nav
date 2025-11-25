@@ -72,9 +72,12 @@ def generate_launch_description():
             SetParameter('use_sim_time', use_sim_time),
 
             LogInfo(msg=[
-                '============ outdoors_loc_nav: starting Map Server  namespace="', namespace,
+                '============ [outdoors_loc_nav] starting Map Server  namespace="', namespace,
                 '"  use_sim_time=', use_sim_time,
-                '  params=', params_file,
+            ]),
+
+            LogInfo(msg=[
+                'params=', params_file,
                 '  map=', map_yaml_file
             ]),
 

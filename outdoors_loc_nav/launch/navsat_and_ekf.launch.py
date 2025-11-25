@@ -48,7 +48,7 @@ def generate_launch_description():
         ),
 
         LogInfo(msg=[
-            '============ outdoors_loc_nav: starting navsat + EKF  namespace="', namespace,
+            '============ [outdoors_loc_nav]  starting navsat + EKF  namespace="', namespace,
             '"  use_sim_time=', use_sim_time
         ]),
 
