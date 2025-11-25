@@ -3,6 +3,7 @@ from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, LogI
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.substitutions import FindPackageShare
+from launch_ros.actions import Node
 from pathlib import Path
 from launch.conditions import IfCondition
 
@@ -38,6 +39,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     localizer = LaunchConfiguration('localizer', default='map_server')
     map_yaml_file = LaunchConfiguration('map', default='')
+    do_odom_tf = LaunchConfiguration('do_odom_tf', default='true')
 
     return LaunchDescription([
 
@@ -65,6 +67,12 @@ def generate_launch_description():
             description='path to map yaml file (for amcl or map_server)'
         ),
 
+        DeclareLaunchArgument(
+            'do_odom_tf',
+            default_value='true',
+            description='Run a static transform publisher "odom->base_link" if true'
+        ),
+
         LogInfo(msg=[
             '============ starting OUTDOOR_LOC_NAV  namespace="', namespace,
             '"  use_sim_time=', use_sim_time,
@@ -81,6 +89,16 @@ def generate_launch_description():
                 'namespace': namespace,
                 'use_sim_time': use_sim_time,
             }.items()
+        ),
+
+        # --- Static transform publisher: odom -> base_link
+        # we need it when the "indoors" EKF node (IMU+wheel odometry) is not used
+        Node(
+            package="tf2_ros",
+            namespace=namespace,
+            executable="static_transform_publisher",
+            arguments=["0", "0", "0", "0", "0", "0", "odom", "base_link"],
+            condition=IfCondition(do_odom_tf)
         ),
 
         # --- Include slam.launch.py
