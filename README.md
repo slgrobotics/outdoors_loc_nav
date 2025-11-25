@@ -32,3 +32,12 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
         }
     )
 ```
+
+This is how [rqt_graph](https://roboticsbackend.com/rqt-graph-visualize-and-debug-your-ros-graph/) shows relationships between the launched *localization nodes* and *topics*:
+
+<img width="1253" height="810" alt="Screenshot from 2025-11-24 20-30-57" src="https://github.com/user-attachments/assets/eb9a9418-fab5-4a1f-8932-df83c06719a3" />
+
+----------------------------
+
+*Please visit [main project Wiki pages](https://github.com/slgrobotics/articubot_one/wiki) for details*
+
