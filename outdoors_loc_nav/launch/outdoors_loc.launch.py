@@ -24,6 +24,7 @@ from launch.conditions import IfCondition
 #             'use_sim_time': use_sim_time,
 #             'namespace': namespace,
 #             'localizer': 'slam_toolbox',   # or 'amcl' or 'map_server' (default)
+#             'map': map_yaml_file,          # optional map file for amcl or map_server
 #         }
 #     )
 #
@@ -36,6 +37,7 @@ def generate_launch_description():
     namespace = LaunchConfiguration('namespace', default='')
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     localizer = LaunchConfiguration('localizer', default='map_server')
+    map_yaml_file = LaunchConfiguration('map', default='')
 
     return LaunchDescription([
 
@@ -57,10 +59,17 @@ def generate_launch_description():
             description='choose localizer: slam, amcl, or map_server'
         ),
 
+        DeclareLaunchArgument(
+            'map',
+            default_value='',
+            description='path to map yaml file (for amcl or map_server)'
+        ),
+
         LogInfo(msg=[
             '============ starting OUTDOOR_LOC_NAV  namespace="', namespace,
             '"  use_sim_time=', use_sim_time,
             '"  localizer=', localizer,
+            '"  map=', map_yaml_file,
         ]),
 
         # --- Include navsat_and_ekf.launch.py
@@ -82,6 +91,7 @@ def generate_launch_description():
             launch_arguments={
                 'namespace': namespace,
                 'use_sim_time': use_sim_time,
+                'map': map_yaml_file,
             }.items(),
             condition=IfCondition(PythonExpression(["'", localizer, "' == 'slam_toolbox'"]))
         ),
@@ -94,6 +104,7 @@ def generate_launch_description():
             launch_arguments={
                 'namespace': namespace,
                 'use_sim_time': use_sim_time,
+                'map': map_yaml_file,
             }.items(),
             condition=IfCondition(PythonExpression(["'", localizer, "' == 'map_server'"]))
         ),
@@ -106,6 +117,7 @@ def generate_launch_description():
             launch_arguments={
                 'namespace': namespace,
                 'use_sim_time': use_sim_time,
+                'map': map_yaml_file,
             }.items(),
             condition=IfCondition(PythonExpression(["'", localizer, "' == 'amcl'"]))
         ),
