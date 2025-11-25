@@ -26,8 +26,9 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
         {
             'use_sim_time': use_sim_time,
             'namespace': namespace
+            'localizer': 'map_server',   # or 'amcl' or 'slam_toolbox'  Default: 'map_server'
+            'map': map_yaml_file,        # optional, for amcl or map_server (default - "empty" 600x600 map 0.25 m/cell)
+            #'map': '/opt/ros/jazzy/share/nav2_bringup/maps/warehouse.yaml',
         }
     )
-
-
 ```
