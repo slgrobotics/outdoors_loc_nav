@@ -3,14 +3,25 @@
 ## Outdoors Localization Bringup
 
 This package launches a full outdoor-capable localization stack:
-- NavSat transform
-- EKF fusion
-- SLAM Toolbox OR Map Server
+- NavSat transform node
+- EKF fusion node (IMU, GPS, wheels Odometry)
+- one of: *Map Server*, *SLAM Toolbox* or *AMCL* localizers
+- optionally, a *static transform* node (odom → base_link)
 
 You need to launch *your robot* and *navigation stack* separately.
 
 Your robot may launch a "*local*" EKF node, to fuse *IMU + EKF* and publish */odometry/local* topic, used indoors.
 This package doesn't use or depend on it, but your robot might.
+
+**Note:** Your robot may already launch a *local EKF node* to fuse IMU and wheel odometry and publish the */odometry/local* topic.
+It would also publish a *odom → base_link* transform, which is important for the rest of the system.
+That’s the typical setup for indoor navigation. This package neither uses nor depends on that EKF, though your robot might rely on it indoors.
+The *do_odom_tf* argument allows this package to publish the *odom → base_link* transform directly, removing the need for the local EKF node.
+When operating *only outdoors* — with a reliable GPS signal — publishing this TF is sufficient on its own.
+
+### How to use
+
+Clone the repository to your robot's workspace, build (see example [below](https://github.com/slgrobotics/outdoors_loc_nav/main/README.md#testing)).
 
 Run:
 ```
@@ -27,6 +38,7 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
             'localizer': 'map_server',   # or 'amcl' or 'slam_toolbox'  Default: 'map_server'
             'map': map_yaml_file,        # optional, for amcl or map_server (default - "empty" 600x600 map 0.25 m/cell)
             #'map': '/opt/ros/jazzy/share/nav2_bringup/maps/warehouse.yaml',
+            #'do_odom_tf': 'true'          # whether to publish static "odom->base_link" TF (default: true)
         }
     )
 ```
@@ -35,7 +47,7 @@ This is how [rqt_graph](https://roboticsbackend.com/rqt-graph-visualize-and-debu
 
 <img width="1253" height="810" alt="Screenshot from 2025-11-24 20-30-57" src="https://github.com/user-attachments/assets/eb9a9418-fab5-4a1f-8932-df83c06719a3" />
 
-## Testing
+### Testing
 
 The best way to try this package is to launch Dragger robot in Gazebo simulation.
 
