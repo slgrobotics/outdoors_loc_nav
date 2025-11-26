@@ -81,6 +81,10 @@ If you zoom a bit out in RViz, you will see aerial map
 
 **Note:** see a [simplified template](https://github.com/slgrobotics/articubot_one/wiki/Outdoors-Package-Template) suggested by ChatGPT.com
 
+### On a real robot
+
+Here is a short [video](https://youtu.be/8MjJq1Rya98) - my [Dragger](https://github.com/slgrobotics/robots_bringup/tree/main/Docs/Dragger) robot navigating, using this package for localization ("*map_server*" mode).
+
 ----------------------------
 
 *Please visit [main project Wiki pages](https://github.com/slgrobotics/articubot_one/wiki) for details*
