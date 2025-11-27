@@ -26,6 +26,8 @@ from launch.conditions import IfCondition
 #             'namespace': namespace,
 #             'localizer': 'slam_toolbox',   # or 'amcl' or 'map_server' (default)
 #             'map': map_yaml_file,          # optional map file for amcl or map_server
+#             #'map': '/opt/ros/jazzy/share/nav2_bringup/maps/warehouse.yaml',
+#             #'do_odom_tf': 'true'          # whether to publish static "map->odom" TF (default: true)
 #         }
 #     )
 #
@@ -91,12 +93,13 @@ def generate_launch_description():
             }.items()
         ),
 
-        # --- Static transform publisher: odom -> base_link
+        # --- Static transform publisher: map -> odom
         # we need it when the "indoors" EKF node (IMU+wheel odometry) is not used
         Node(
             package="tf2_ros",
             namespace=namespace,
             executable="static_transform_publisher",
+            name="map_to_odom_tf_pub",
             arguments=[
                 '--x', '0.0',     # X translation in meters
                 '--y', '0.0',     # Y translation in meters
@@ -104,8 +107,8 @@ def generate_launch_description():
                 '--roll', '0.0',  # Roll in radians
                 '--pitch', '0.0', # Pitch in radians
                 '--yaw', '0.0',   # Yaw in radians (e.g., 90 degrees)
-                '--frame-id', 'odom', # Parent frame ID
-                '--child-frame-id', 'base_link' # Child frame ID
+                '--frame-id', 'map', # Parent frame ID
+                '--child-frame-id', 'odom' # Child frame ID
             ],
             condition=IfCondition(do_odom_tf)
         ),
