@@ -26,12 +26,13 @@ options = {
   trajectory_builder = TRAJECTORY_BUILDER,
 
 -- See https://google-cartographer-ros.readthedocs.io/en/stable/configuration.html
+--     https://chatgpt.com/s/t_692a1fbba6f88191a446113937aa3ff4
   map_frame = "map",
-  tracking_frame = "imu_link", -- "base_link", -- "laser_frame",
-  published_frame = "base_link", -- "base_link",
+  tracking_frame = "imu_link",
+  published_frame = "odom",
 
   odom_frame = "odom",
-  provide_odom_frame = true,
+  provide_odom_frame = false,
   publish_frame_projected_to_2d = true,
 
   use_odometry = true,
