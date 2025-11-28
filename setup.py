@@ -13,6 +13,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('outdoors_loc_nav/launch/*.py')),
         (os.path.join('share', package_name, 'params'), glob('outdoors_loc_nav/params/*.yaml')),
+        (os.path.join('share', package_name, 'params'), glob('outdoors_loc_nav/params/*.lua')),
         (os.path.join('share', package_name, 'tf'), glob('outdoors_loc_nav/tf/*')),
         (os.path.join('share', package_name, 'assets', 'maps'), glob('outdoors_loc_nav/assets/maps/*')),
     ],

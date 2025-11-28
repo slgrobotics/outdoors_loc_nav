@@ -123,4 +123,17 @@ def generate_launch_description():
             }.items(),
             condition=IfCondition(PythonExpression(["'", localizer, "' == 'amcl'"]))
         ),
+
+        # --- Include amcl.launch.py
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                str(Path(pkg) / 'launch' / 'cartographer.launch.py')
+            ),
+            launch_arguments={
+                'namespace': namespace,
+                'use_sim_time': use_sim_time,
+                'map': map_yaml_file,
+            }.items(),
+            condition=IfCondition(PythonExpression(["'", localizer, "' == 'cartographer'"]))
+        ),
     ])
