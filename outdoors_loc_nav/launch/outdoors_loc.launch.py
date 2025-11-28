@@ -78,8 +78,9 @@ def generate_launch_description():
         LogInfo(msg=[
             '============ starting OUTDOOR_LOC_NAV  namespace="', namespace,
             '"  use_sim_time=', use_sim_time,
-            '"  localizer=', localizer,
-            '"  map=', map_yaml_file,
+            '  localizer=', localizer,
+            '  do_odom_tf=', do_odom_tf,
+            '  map=', map_yaml_file,
         ]),
 
         # --- Include navsat_and_ekf.launch.py
