@@ -10,11 +10,9 @@ This package launches a full outdoor-capable localization stack:
 
 You need to launch *your robot* and *navigation stack* separately.
 
-**Note:** Your robot may already launch a *local EKF node* to fuse IMU and wheel odometry and publish the */odometry/local* topic.
+**Note:** Your robot should launch a *local EKF node* to fuse IMU and wheel odometry and publish the */odometry/local* topic.
 It would also publish a *odom → base_link* transform, which is important for the rest of the system.
-That’s the typical setup for indoor navigation. This package neither uses nor depends on that EKF, though your robot might rely on it indoors.
-The *do_odom_tf* argument allows this package to publish the *odom → base_link* transform directly, removing the need for the local EKF node.
-When operating *only outdoors* — with a reliable GPS signal — publishing this TF is sufficient on its own.
+That’s the typical setup for indoor navigation. This package neither uses nor depends on that EKF, though your robot relies on it indoors.
 
 ### How to use
 
@@ -34,8 +32,7 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
             'namespace': namespace
             'localizer': 'map_server',   # or 'amcl' or 'slam_toolbox'  Default: 'map_server'
             'map': map_yaml_file,        # optional, for amcl or map_server (default - "empty" 600x600 map 0.25 m/cell)
-            #'map': '/opt/ros/jazzy/share/nav2_bringup/maps/warehouse.yaml',
-            #'do_odom_tf': 'true'          # whether to publish static "odom->base_link" TF (default: true)
+            #'map': '/opt/ros/jazzy/share/nav2_bringup/maps/warehouse.yaml'
         }
     )
 ```
