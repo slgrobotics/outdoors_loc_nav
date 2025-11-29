@@ -25,8 +25,15 @@ options = {
   map_builder = MAP_BUILDER,
   trajectory_builder = TRAJECTORY_BUILDER,
 
--- See https://google-cartographer-ros.readthedocs.io/en/stable/configuration.html
+--
+-- See:
+--     https://google-cartographer-ros.readthedocs.io/en/stable/configuration.html
+--     https://google-cartographer-ros.readthedocs.io/en/latest/tuning.html
+--     https://google-cartographer-ros.readthedocs.io/en/latest/going_further.html
+--     https://google-cartographer-ros.readthedocs.io/en/latest/algo_walkthrough.html
+--
 --     https://chatgpt.com/s/t_692a1fbba6f88191a446113937aa3ff4
+--
 
 -- ================================
 --   FRAME DEFINITIONS (IMPORTANT)
@@ -83,8 +90,17 @@ options = {
 
 -- =========================================
 --   MAP_BUILDER and TRAJECTORY TUNING
+--     - minimal changes from defaults:
+
+MAP_BUILDER.use_trajectory_builder_2d = true
+TRAJECTORY_BUILDER_2D.use_imu_data = true
+
+-- =========================================
 --
---   Override some default parameters from files in /opt/ros/jazzy/share/cartographer/configuration_files
+-- Further TRAJECTORY BUILDER 2D PARAMETER TUNING
+--
+--  Override some default parameters,
+--  (hints from files in /opt/ros/jazzy/share/cartographer/configuration_files)
 --      map_builder.lua
 --      map_builder_server.lua
 --      pose_graph.lua
@@ -93,11 +109,9 @@ options = {
 --      trajectory_builder.lua
 -- =========================================
 
-MAP_BUILDER.use_trajectory_builder_2d = true
 TRAJECTORY_BUILDER.collate_landmarks = false
 
 TRAJECTORY_BUILDER_2D.num_accumulated_range_data = 2
-TRAJECTORY_BUILDER_2D.use_imu_data = true
 
 TRAJECTORY_BUILDER_2D.submaps.num_range_data = 45
 
