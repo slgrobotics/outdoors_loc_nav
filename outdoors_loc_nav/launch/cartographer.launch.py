@@ -89,8 +89,10 @@ def generate_launch_description():
             remappings=[
                 ('imu','imu/data'),
                 ('scan','scan'),
-                #('odom','diff_cont/odom')  # direct mapping
-                ('odom','odometry/local')   # ekf filter mapping
+                #('odom','diff_cont/odom'),  # direct wheels odometry mapping
+                #('odom','odometry/local'),  # "ekf_filter_node_odom" mapping
+                ('odom','odometry/global'),  # "ekf_filter_node_navsat" mapping
+                ('fix','gps/filtered'),      # when use_nav_sat = true
                 ]
             ),
 

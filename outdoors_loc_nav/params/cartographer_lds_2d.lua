@@ -27,17 +27,37 @@ options = {
 
 -- See https://google-cartographer-ros.readthedocs.io/en/stable/configuration.html
 --     https://chatgpt.com/s/t_692a1fbba6f88191a446113937aa3ff4
+
+-- ================================
+--   FRAME DEFINITIONS (IMPORTANT)
+-- ================================
+
   map_frame = "map",
+
+  -- Cartographer should track motion in IMU frame
   tracking_frame = "imu_link",
-  published_frame = "odom",
+
+  -- PUBLISH POSE IN BASE FRAME
+  published_frame = "base_footprint",
 
   odom_frame = "odom",
+
+  -- We already publish odom->base_link via EKF, so:
   provide_odom_frame = false,
+
+  -- publish a pure 2D pose for Nav2
   publish_frame_projected_to_2d = true,
 
-  use_odometry = true,
+-- ================================
+--     SENSOR SOURCES
+-- ================================
+
+  use_odometry = true, -- when true, needs remapping: ('odom','odometry/global', 'odometry/local' or 'diff_cont/odom')
   use_pose_extrapolator = false,
-  use_nav_sat = false,
+
+  -- Enabling this as we use GPS:
+  use_nav_sat = true,  -- when true, needs remapping: ('fix','gps/filtered')
+
   use_landmarks = false,
 
   num_laser_scans = 1,
@@ -45,54 +65,75 @@ options = {
   num_subdivisions_per_laser_scan = 1,
   num_point_clouds = 0,
 
+-- ================================
+--   TIMING
+-- ================================
+
   lookup_transform_timeout_sec = 0.3,
   submap_publish_period_sec = 0.1,
-  pose_publish_period_sec = 5e-2, -- 20 Hz (5e-3 - 200 Hz)
-  trajectory_publish_period_sec = 30e-3, -- 30 ms = 33 Hz
+  pose_publish_period_sec = 5e-2,           -- 20 Hz (default 5e-3 - 200 Hz)
+  trajectory_publish_period_sec = 30e-3,    -- 30 ms = 33 Hz
 
   rangefinder_sampling_ratio = 1.0,
   odometry_sampling_ratio = 1.0,
   fixed_frame_pose_sampling_ratio = 1.0,
-  imu_sampling_ratio = 0.1,
+  imu_sampling_ratio = 0.1,                 -- keep it light
   landmarks_sampling_ratio = 1.0,
 }
 
--- Override some default parameters from files in /opt/ros/jazzy/share/cartographer/configuration_files
---    map_builder.lua
---    map_builder_server.lua
---    pose_graph.lua
---    trajectory_builder_2d.lua
---    trajectory_builder_3d.lua
---    trajectory_builder.lua
+-- =========================================
+--   MAP_BUILDER and TRAJECTORY TUNING
+--
+--   Override some default parameters from files in /opt/ros/jazzy/share/cartographer/configuration_files
+--      map_builder.lua
+--      map_builder_server.lua
+--      pose_graph.lua
+--      trajectory_builder_2d.lua
+--      trajectory_builder_3d.lua
+--      trajectory_builder.lua
+-- =========================================
 
 MAP_BUILDER.use_trajectory_builder_2d = true
 TRAJECTORY_BUILDER.collate_landmarks = false
+
 TRAJECTORY_BUILDER_2D.num_accumulated_range_data = 2
 TRAJECTORY_BUILDER_2D.use_imu_data = true
+
 TRAJECTORY_BUILDER_2D.submaps.num_range_data = 45
 
 -- more points
 TRAJECTORY_BUILDER_2D.adaptive_voxel_filter.max_length = 0.2
 TRAJECTORY_BUILDER_2D.adaptive_voxel_filter.min_num_points = 400
+
 -- slightly slower insertion
 TRAJECTORY_BUILDER_2D.submaps.range_data_inserter.probability_grid_range_data_inserter.hit_probability = 0.53
 TRAJECTORY_BUILDER_2D.submaps.range_data_inserter.probability_grid_range_data_inserter.miss_probability = 0.493
+
 -- slightly shorter rays
 TRAJECTORY_BUILDER_2D.max_range = 15.0
+
 -- wheel odometry is fine
 TRAJECTORY_BUILDER_2D.ceres_scan_matcher.translation_weight = 20
+
 -- IMU is ok
 TRAJECTORY_BUILDER_2D.ceres_scan_matcher.rotation_weight = 20
+
+-- =========================================
+--    POSE GRAPH OPTIMIZATION
+-- =========================================
 
 -- less outliers
 POSE_GRAPH.constraint_builder.max_constraint_distance = 5.0
 POSE_GRAPH.constraint_builder.min_score = 0.62
+
 -- tune down IMU in optimization
 POSE_GRAPH.optimization_problem.acceleration_weight = 0.1 * 1e3
 POSE_GRAPH.optimization_problem.rotation_weight = 0.1 * 3e5
--- ignore wheels in optimization
-POSE_GRAPH.optimization_problem.odometry_translation_weight = 0.
-POSE_GRAPH.optimization_problem.odometry_rotation_weight = 0.
+
+-- to ignore wheels in optimization set weights to 0.0
+POSE_GRAPH.optimization_problem.odometry_translation_weight = 1e3
+POSE_GRAPH.optimization_problem.odometry_rotation_weight = 3e3
+
 POSE_GRAPH.optimization_problem.log_solver_summary = true
 
 POSE_GRAPH.optimization_problem.huber_scale = 5e2
