@@ -45,7 +45,7 @@ options = {
   tracking_frame = "imu_link",
 
   -- PUBLISH POSE IN BASE FRAME
-  published_frame = "base_footprint",
+  published_frame = "odom_",
 
   odom_frame = "odom",
 
@@ -59,7 +59,7 @@ options = {
 --     SENSOR SOURCES
 -- ================================
 
-  use_odometry = true, -- when true, needs remapping: ('odom','odometry/global', 'odometry/local' or 'diff_cont/odom')
+  use_odometry = false, -- when true, needs remapping: ('odom','odometry/global', 'odometry/local' or 'diff_cont/odom')
   use_pose_extrapolator = false,
 
   -- Enabling this as we use GPS:
@@ -77,7 +77,7 @@ options = {
 -- ================================
 
   lookup_transform_timeout_sec = 0.3,
-  submap_publish_period_sec = 0.1,
+  submap_publish_period_sec = 0.3,
   pose_publish_period_sec = 5e-2,           -- 20 Hz (default 5e-3 - 200 Hz)
   trajectory_publish_period_sec = 30e-3,    -- 30 ms = 33 Hz
 
@@ -131,13 +131,22 @@ TRAJECTORY_BUILDER_2D.ceres_scan_matcher.translation_weight = 20
 -- IMU is ok
 TRAJECTORY_BUILDER_2D.ceres_scan_matcher.rotation_weight = 20
 
+
+
+TRAJECTORY_BUILDER_2D.min_range = 0.12
+TRAJECTORY_BUILDER_2D.max_range = 12.0
+TRAJECTORY_BUILDER_2D.missing_data_ray_length = 3.
+TRAJECTORY_BUILDER_2D.use_online_correlative_scan_matching = true 
+TRAJECTORY_BUILDER_2D.motion_filter.max_angle_radians = math.rad(0.1)
+
 -- =========================================
 --    POSE GRAPH OPTIMIZATION
 -- =========================================
 
 -- less outliers
 POSE_GRAPH.constraint_builder.max_constraint_distance = 5.0
-POSE_GRAPH.constraint_builder.min_score = 0.62
+POSE_GRAPH.constraint_builder.min_score = 0.65
+POSE_GRAPH.constraint_builder.global_localization_min_score = 0.7
 
 -- tune down IMU in optimization
 POSE_GRAPH.optimization_problem.acceleration_weight = 0.1 * 1e3
@@ -150,7 +159,7 @@ POSE_GRAPH.optimization_problem.odometry_rotation_weight = 3e3
 POSE_GRAPH.optimization_problem.log_solver_summary = true
 
 POSE_GRAPH.optimization_problem.huber_scale = 5e2
-POSE_GRAPH.optimize_every_n_nodes = 40
+-- POSE_GRAPH.optimize_every_n_nodes = 40
 POSE_GRAPH.constraint_builder.sampling_ratio = 0.03
 POSE_GRAPH.optimization_problem.ceres_solver_options.max_num_iterations = 10
 -- POSE_GRAPH.constraint_builder.log_matches = true
