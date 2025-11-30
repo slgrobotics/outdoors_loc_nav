@@ -5,7 +5,7 @@
 This package launches a full outdoor-capable localization stack:
 - NavSat transform node
 - EKF fusion node (IMU, GPS, wheels Odometry)
-- one of: *Map Server*, *SLAM Toolbox* or *AMCL* localizers
+- one of: *Map Server*, *SLAM Toolbox*, *Cartographer* or *AMCL* localizers
 - optionally, a *static transform* node (odom → base_link)
 
 You need to launch *your robot* and *navigation stack* separately.
@@ -30,12 +30,20 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
         {
             'use_sim_time': use_sim_time,
             'namespace': namespace
-            'localizer': 'map_server',   # or 'amcl' or 'slam_toolbox'  Default: 'map_server'
+            'localizer': 'map_server',   # 'slam_toolbox' or 'amcl' or 'cartographer' Default: 'map_server'
             'map': map_yaml_file,        # optional, for amcl or map_server (default - "empty" 600x600 map 0.25 m/cell)
             #'map': '/opt/ros/jazzy/share/nav2_bringup/maps/warehouse.yaml'
         }
     )
 ```
+
+**Note:**
+- *Map Server* and *SLAM Toolbox* work fine.
+- *AMCL* and *Cartographer* may need work. If you know how to fix it, please submit a pull request.
+- for *Cartographer* you MUST start the robot in East (ENU "yaw=0") orientation. Cartographer does not query initial pose,
+and there is [no easy way](https://github.com/slgrobotics/outdoors_loc_nav/issues/1) to set it.
+
+### Nodes and Topics
 
 This is how [rqt_graph](https://roboticsbackend.com/rqt-graph-visualize-and-debug-your-ros-graph/) shows relationships between the launched *localization nodes* and *topics*:
 
