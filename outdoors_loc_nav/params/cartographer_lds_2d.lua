@@ -57,6 +57,9 @@ options = {
 
 -- ================================
 --     SENSOR SOURCES
+--
+-- See https://google-cartographer-ros.readthedocs.io/en/latest/going_further.html#more-input
+--
 -- ================================
 
   use_odometry = false, -- when true, needs remapping: ('odom','odometry/global', 'odometry/local' or 'diff_cont/odom')
@@ -131,11 +134,10 @@ TRAJECTORY_BUILDER_2D.ceres_scan_matcher.translation_weight = 20
 -- IMU is ok
 TRAJECTORY_BUILDER_2D.ceres_scan_matcher.rotation_weight = 20
 
-
-
-TRAJECTORY_BUILDER_2D.min_range = 0.12
-TRAJECTORY_BUILDER_2D.max_range = 12.0
-TRAJECTORY_BUILDER_2D.missing_data_ray_length = 3.
+-- Laser scan parameters:
+TRAJECTORY_BUILDER_2D.min_range = 0.3
+TRAJECTORY_BUILDER_2D.max_range = 10.0
+TRAJECTORY_BUILDER_2D.missing_data_ray_length = 10.0
 TRAJECTORY_BUILDER_2D.use_online_correlative_scan_matching = true 
 TRAJECTORY_BUILDER_2D.motion_filter.max_angle_radians = math.rad(0.1)
 
