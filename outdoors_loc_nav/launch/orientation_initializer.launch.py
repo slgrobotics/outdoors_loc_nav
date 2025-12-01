@@ -23,6 +23,8 @@ def generate_launch_description():
     pkg_share = FindPackageShare(package_name).find(package_name)
 
     initial_pose_params = str(Path(pkg_share) / 'params' / 'initial_pose.yaml')
+    config_dir = str(Path(pkg_share) / 'params')
+    config_base = 'cartographer_lds_2d.lua'
 
     return LaunchDescription([
 
@@ -58,7 +60,7 @@ def generate_launch_description():
             executable='initial_pose_pub',
             name='initial_pose_pub',
             namespace=namespace,
-            parameters=[initial_pose_params],
+            parameters=[initial_pose_params, {'config_dir': config_dir}, {'config_base': config_base}],
             output='screen'
         ),
     ])
