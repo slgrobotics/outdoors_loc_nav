@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from glob import glob
 import os
 
@@ -7,7 +7,7 @@ package_name = 'outdoors_loc_nav'
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[package_name],
+    packages=find_packages(include=['outdoors_loc_nav', 'outdoors_loc_nav.*']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
@@ -21,10 +21,13 @@ setup(
     zip_safe=True,
     maintainer='Sergei Grichine',
     maintainer_email='slg@quakemap.com',
-    description='Outdoor GPS SLAM Toolbox or Map Server bringup',
+    description='Outdoor GPS Localization: Map Server or SLAM Toolbox bringup',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'orientation_service = outdoors_loc_nav.util.orientation_service:main',
+            'initial_pose_pub = outdoors_loc_nav.util.initial_pose_pub:main',
+        ],
     },
 )

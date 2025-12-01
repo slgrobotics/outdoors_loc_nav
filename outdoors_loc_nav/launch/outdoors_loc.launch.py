@@ -124,7 +124,18 @@ def generate_launch_description():
             condition=IfCondition(PythonExpression(["'", localizer, "' == 'amcl'"]))
         ),
 
-        # --- Include amcl.launch.py
+        # --- Include cartographer.launch.py (and orientation initializer to set initial pose from IMU)
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                str(Path(pkg) / 'launch' / 'orientation_initializer.launch.py')
+            ),
+            launch_arguments={
+                'namespace': namespace,
+                'use_sim_time': use_sim_time,
+            }.items(),
+            condition=IfCondition(PythonExpression(["'", localizer, "' == 'cartographer'"]))
+        ),
+
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 str(Path(pkg) / 'launch' / 'cartographer.launch.py')
