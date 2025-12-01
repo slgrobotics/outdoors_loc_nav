@@ -42,6 +42,7 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
 - *AMCL* and *Cartographer* may need work. If you know how to fix it, please submit a pull request.
 - for *Cartographer* you MUST start the robot in East (ENU "yaw=0") orientation. Cartographer does not query initial pose,
 and there is [no easy way](https://github.com/slgrobotics/outdoors_loc_nav/issues/1) to set it.
+- To change robot's orientation in Gazebo, look for '*initial_yaw*' launch argument in [robots/dragger/launch/dragger.drive.launch.py](https://github.com/slgrobotics/articubot_one/blob/dev/robots/dragger/launch/dragger.drive.launch.py)
 
 ### Nodes and Topics
 
