@@ -6,3 +6,4 @@ initial_pose_pub:
       y: 0.0
     old_trajectory_id: 0  # Cartographer old trajectory ID to be deleted initially
     cycle_period: 2.0     # cycling period for the state machine
+    #use_imu_yaw: false    # if false, wait for RViz "2D Pose Estimate". Default true

@@ -35,6 +35,7 @@ class InitialPosePub(Node):
         self.declare_parameter('initial_pose.y', 0.0)
         self.declare_parameter('old_trajectory_id', 1)
         self.declare_parameter('cycle_period', 1.0)  # how often timer wakes up to check preconditions
+        self.declare_parameter('use_imu_yaw', True)  # if false, wait for RViz "2D Pose Estimate"
 
         self.config_dir = self.get_parameter('config_dir').value
         self.config_base = self.get_parameter('config_base').value
@@ -58,12 +59,17 @@ class InitialPosePub(Node):
 
         # ----- subscriptions -----
         # IMU subscription - default QoS is fine for IMU
-        self.imu_subscription = self.create_subscription(
-            Imu,
-            '/imu/data',
-            self.imu_callback,
-            10
-        )
+        if self.get_parameter('use_imu_yaw').value:
+            self.get_logger().info("FYI: use_imu_yaw is true, will take orientation from IMU")
+            self.imu_subscription = self.create_subscription(
+                Imu,
+                '/imu/data',
+                self.imu_callback,
+                10
+            )
+        else:
+            self.get_logger().info("FYI: use_imu_yaw is false, will wait for RViz '2D Pose Estimate'")
+
 
         # /initialpose MUST be BEST_EFFORT (RViz publishes "2D Pose Estimate" that way)
         initialpose_qos = QoSProfile(depth=10)
@@ -86,7 +92,7 @@ class InitialPosePub(Node):
         cycle_period = float(self.get_parameter('cycle_period').value)
         self.timer = self.create_timer(cycle_period, self.timer_callback)
 
-        self.get_logger().info("initial_pose_pub ready - waiting for IMU or /initialpose - or will use params...")
+        self.get_logger().info("OK: initial_pose_pub ready")
 
 
     # ----------------- callbacks -----------------
@@ -130,7 +136,10 @@ class InitialPosePub(Node):
         if self.state == "BEGINNING":   # the beginning
 
             if not self._have_pose():
-                self.get_logger().info("SM: BEGINNING - Waiting for initial orientation from IMU or RViz...")
+                if self.get_parameter('use_imu_yaw').value:
+                    self.get_logger().info("SM: BEGINNING - Waiting for initial orientation from IMU or RViz '2D Pose Estimate'...")
+                else:
+                    self.get_logger().info("SM: BEGINNING - Waiting for initial orientation from RViz '2D Pose Estimate'...")
                 return
 
             self.get_logger().info("SM: have pose, BEGINNING -> WORKING")
