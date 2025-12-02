@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Imu
 import tf_transformations
@@ -69,6 +69,7 @@ class InitialPosePub(Node):
         # Use compatibility: RELIABLE + TRANSIENT_LOCAL + reasonable depth.
         initialpose_qos = QoSProfile(depth=10)
         initialpose_qos.reliability = ReliabilityPolicy.BEST_EFFORT
+        initialpose_qos.history = HistoryPolicy.KEEP_LAST
         initialpose_qos.durability = DurabilityPolicy.VOLATILE
 
         self.pose_subscription = self.create_subscription(
@@ -105,14 +106,67 @@ class InitialPosePub(Node):
 
         # debug-level info (rate-limited by timer)
         # self.get_logger().debug(f"IMU yaw: {self.latest_yaw_deg:.2f}°")
+        #self.get_logger().info(f"IMU yaw: {self.latest_yaw_deg:.2f}°")
 
     def pose_estimate_callback(self, msg: PoseWithCovarianceStamped) -> None:
         """Store the RViz pose; it overrides parameter pose when present."""
-        self.get_logger().info("Received /initialpose from RViz - will use it as initial pose.")
+        self.get_logger().info("=========== Received /initialpose from RViz - will use it as initial pose. ==============")
         self.latest_pose_msg = msg
         # ensure we (re)try start sequence
         self.published = False
 
+    def pose_estimate_callback(self, msg: PoseWithCovarianceStamped) -> None:
+        """
+        Handle RViz '2D Pose Estimate' messages.
+        This overrides IMU-derived orientation and the parameter-based initial pose.
+
+        RViz publishes PoseWithCovarianceStamped on /initialpose.
+        """
+        self.get_logger().info("=========== Received /initialpose from RViz — using it as initial pose for Cartographer ==============")
+
+        # --- Extract x, y --------------------------------------------------------
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+
+        # --- Extract yaw from quaternion -----------------------------------------
+        q = msg.pose.pose.orientation
+
+        # Convert quaternion → yaw
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        yaw_rad = math.atan2(siny_cosp, cosy_cosp)
+        yaw_deg = math.degrees(yaw_rad)
+
+        self.get_logger().info(
+            f"RViz 2D Pose Estimate: x={x:.2f}, y={y:.2f}, "
+            f"yaw={yaw_deg:.1f} deg (qz,qw)=({q.z:.3f}, {q.w:.3f})"
+        )
+
+        # Store for later use (start_new_trajectory will prioritize this)
+        self.latest_pose_msg = msg
+        self.latest_yaw_rad = yaw_rad
+        self.latest_yaw_deg = yaw_deg
+
+        # --- Optional: log covariance -------------------------------------------
+        cov = msg.pose.covariance
+        if cov.any():
+            pos_cov = cov[0] + cov[7]
+            yaw_cov = cov[35]
+            self.get_logger().info(
+                f"                       covariance: pos_cov={pos_cov:.3f}, yaw_cov={yaw_cov:.3f}"
+            )
+
+        # --- Tell the node to restart the start-trajectory sequence -------------
+        self.published = False
+
+        # A tiny note: RViz sometimes sends messages with frame_id="map"
+        if msg.header.frame_id not in ("map", "map_odom"):
+            self.get_logger().warn(
+                f"/initialpose frame_id={msg.header.frame_id} (expected 'map'). "
+                "Cartographer ignores frame_id, but TF chains may not."
+            )
+
+        return
 
     # ----------------- orchestration -----------------
     def timer_callback(self) -> None:
