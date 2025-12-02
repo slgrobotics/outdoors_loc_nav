@@ -45,14 +45,14 @@ def generate_launch_description():
             namespace, '"  use_sim_time=', use_sim_time
         ]),
 
-        # --- Orientation service ---
-        Node(
-            package='outdoors_loc_nav',
-            executable='orientation_service',
-            name='orientation_service',
-            namespace=namespace,
-            output='screen'
-        ),
+        # # --- Orientation service ---
+        # Node(
+        #     package='outdoors_loc_nav',
+        #     executable='orientation_service',
+        #     name='orientation_service',
+        #     namespace=namespace,
+        #     output='screen'
+        # ),
 
         # --- Initial pose publisher (auto-queries /robot/get_orientation) ---
         Node(
