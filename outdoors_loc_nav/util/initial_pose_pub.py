@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
-from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Imu
 import tf_transformations
 from cartographer_ros_msgs.srv import StartTrajectory, FinishTrajectory
@@ -68,11 +68,11 @@ class InitialPosePub(Node):
         # /initialpose (RViz) is typically published with transient_local (latched) QoS.
         # Use compatibility: RELIABLE + TRANSIENT_LOCAL + reasonable depth.
         initialpose_qos = QoSProfile(depth=10)
-        initialpose_qos.reliability = ReliabilityPolicy.RELIABLE
-        initialpose_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+        initialpose_qos.reliability = ReliabilityPolicy.BEST_EFFORT
+        initialpose_qos.durability = DurabilityPolicy.VOLATILE
 
         self.pose_subscription = self.create_subscription(
-            PoseWithCovariance,
+            PoseWithCovarianceStamped,
             '/initialpose',
             self.pose_estimate_callback,
             initialpose_qos
@@ -106,7 +106,7 @@ class InitialPosePub(Node):
         # debug-level info (rate-limited by timer)
         # self.get_logger().debug(f"IMU yaw: {self.latest_yaw_deg:.2f}°")
 
-    def pose_estimate_callback(self, msg: PoseWithCovariance) -> None:
+    def pose_estimate_callback(self, msg: PoseWithCovarianceStamped) -> None:
         """Store the RViz pose; it overrides parameter pose when present."""
         self.get_logger().info("Received /initialpose from RViz - will use it as initial pose.")
         self.latest_pose_msg = msg
