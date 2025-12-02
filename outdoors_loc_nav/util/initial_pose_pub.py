@@ -212,15 +212,17 @@ class InitialPosePub(Node):
 
         future = self.finish_client.call_async(req)
         future.add_done_callback(self._on_finish_done)
-        self.get_logger().info("IP: Calling /finish_trajectory service...")
+        self.get_logger().info(f"IP: Calling /finish_trajectory service...  trajectory_id: {self.old_trajectory_id}")
 
     def _on_finish_done(self, future):
         if future.result() is None:
             self.get_logger().error("Error: finish_trajectory FAILED")
+            self.old_trajectory_id += 1
             self.state = "IDLE"
             return
 
-        self.get_logger().info("OK: finish_trajectory Success")
+        self.get_logger().info(f"OK: finish_trajectory id: {self.old_trajectory_id} - Success")
+        self.old_trajectory_id += 1
         self.state = "STARTING"
         self._call_start()
 
