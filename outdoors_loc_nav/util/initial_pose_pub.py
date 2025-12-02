@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from sensor_msgs.msg import Imu
 import tf_transformations
 from cartographer_ros_msgs.srv import StartTrajectory, FinishTrajectory
 import math
@@ -29,6 +31,29 @@ class InitialPosePub(Node):
         self.declare_parameter("old_trajectory_id", 1)
         self.declare_parameter('publish_delay', 2.0)
 
+        self.latest_yaw_rad = None
+        self.latest_yaw_deg = None
+
+        # We get initial pose from IMU at startup
+        self.imu_subscription = self.create_subscription(
+            Imu,
+            '/imu/data',
+            self.imu_callback,
+            10
+        )
+
+        qos = QoSProfile(depth=1)
+        qos.reliability = ReliabilityPolicy.RELIABLE
+        qos.durability = DurabilityPolicy.VOLATILE
+
+        # Allow to set pose using RViz "2D Pose Estimate" button
+        self.pose_subscription = self.create_subscription(
+            PoseWithCovarianceStamped,
+            '/initialpose',
+            self.pose_estimate_callback,
+            qos
+        )
+
         # Cartographer old trajectory ID to be deleted:
         self.old_trajectory_id = int(self.get_parameter("old_trajectory_id").value)
 
@@ -42,43 +67,48 @@ class InitialPosePub(Node):
 
         delay = float(self.get_parameter('publish_delay').value)
         self.timer = self.create_timer(delay, self.timer_callback)
-        self.published = False
+        self.published = False  # activate timer loop (dormant when True)
+
+    def imu_callback(self, msg: Imu):
+
+        if self.published:
+            return # we are done, idle
+
+        # keep collecting data until the service is up. Service will take the latest.
+        # Convert quaternion → yaw (ENU)
+        q = msg.orientation
+        # Quaternion → Euler (roll, pitch, yaw)
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        self.latest_yaw_rad = math.atan2(siny_cosp, cosy_cosp)  # radians
+        self.latest_yaw_deg = math.degrees(self.latest_yaw_rad)
+        self.get_logger().info(
+            f"FYI: got IMU quaternion: yaw(qz,qw)=({q.z:.3f}, {q.w:.3f} = {self.latest_yaw_rad:.3f} radians = {self.latest_yaw_deg:.1f} degrees)"
+        )
+
+    # RViz can send PoseWithCovarianceStamped() when you click on Position Estimate:
+    def pose_estimate_callback(self, msg: PoseWithCovarianceStamped):
+
+        self.get_logger().info("PoseWithCovarianceStamped arrived")
+        #
+        # TODO
+        #
+        self.published = False  # activate timer loop (dormant when True)
+        return
 
     def timer_callback(self):
+
+        self.get_logger().info("timer_callback: is idling: {self.published}")
+
         if self.published:
+            return # we are done, idle
+
+        self.get_logger().info(f"IP: Waiting for {self.finish_service_str} service...")
+
+        if not self.finish_client.wait_for_service(0.5):
             return
 
-        # Fall-back: pose from initial_pose.yaml
-        x = float(self.get_parameter('initial_pose.x').value)
-        y = float(self.get_parameter('initial_pose.y').value)
-        yaw_deg = float(self.get_parameter('initial_pose.yaw_deg').value)
-        yaw_rad = math.radians(yaw_deg)
-
-        # Actual pose query to orientation service:
-        # TODO
-
-        # RViz can send PoseWithCovarianceStamped() when you click on Position Estimate:
-        # TODO
-
-        # call 
-        msg = PoseWithCovarianceStamped()
-
-        msg.pose.pose.position.x = x
-        msg.pose.pose.position.y = y
-        msg.pose.pose.position.z = 0.0
-
-        q = tf_transformations.quaternion_from_euler(0, 0, yaw_rad)
-        msg.pose.pose.orientation.x = q[0]
-        msg.pose.pose.orientation.y = q[1]
-        msg.pose.pose.orientation.z = q[2]
-        msg.pose.pose.orientation.w = q[3]
-
-        p = msg.pose.pose.position
-        q = msg.pose.pose.orientation
-
-        self.get_logger().info(
-            f"FYI: initial pose: x={p.x:.2f}, y={p.y:.2f}, yaw(qz,qw)=({q.z:.3f}, {q.w:.3f})"
-        )
+        self.get_logger().info(f"OK: {self.finish_service_str} service is up, calling...")
 
         #
         # Call Cartographer trajectory services.
@@ -91,16 +121,16 @@ class InitialPosePub(Node):
             f"IP:  finish_old_trajectory"
         )
 
-        self.finish_old_trajectory()
+        self.finish_old_trajectory() # will wait till the service is up
 
         self.get_logger().info(
-            f"IP:  start_new_trajectory initial pose: x={x}, y={y}, yaw={yaw_deg}°"
+            "IP:  start_new_trajectory"
         )
 
-        self.start_new_trajectory(p, q)
+        self.start_new_trajectory()
 
         self.get_logger().info(
-            f"OK: Finished call initial pose: x={x}, y={y}, yaw={yaw_deg}°"
+            "OK: Finished call to start_new_trajectory"
         )
 
         self.published = True
@@ -113,11 +143,6 @@ class InitialPosePub(Node):
     # cartographer_ros_msgs.srv.FinishTrajectory_Response(status=cartographer_ros_msgs.msg.StatusResponse(code=0, message='Finished trajectory 0.'))
 
     def finish_old_trajectory(self):
-        self.get_logger().info(f"IP: Waiting for {self.finish_service_str} service...")
-
-        self.finish_client.wait_for_service()
-
-        self.get_logger().info(f"OK: {self.finish_service_str} service is up, calling...")
 
         request = FinishTrajectory.Request()
         request.trajectory_id = self.old_trajectory_id  # trajectory to be deleted ("finished"), usually 0
@@ -145,12 +170,31 @@ class InitialPosePub(Node):
     # response:
     # cartographer_ros_msgs.srv.StartTrajectory_Response(status=cartographer_ros_msgs.msg.StatusResponse(code=0, message='Success.'), trajectory_id=1)
 
-    def start_new_trajectory(self, pos, ori):
+    def start_new_trajectory(self):
         self.get_logger().info(f"IP: Waiting for {self.start_service_str} service...")
 
         self.start_client.wait_for_service()
 
         self.get_logger().info(f"OK: {self.start_service_str} service is up, calling...")
+
+        # we take IMU orientation from subscription:
+        x = 0.0
+        y = 0.0
+        yaw_rad = self.latest_yaw_rad
+        yaw_deg = self.latest_yaw_deg
+
+        if not self.latest_yaw_rad:
+            # Fall-back: pose from initial_pose.yaml
+            x = float(self.get_parameter('initial_pose.x').value)
+            y = float(self.get_parameter('initial_pose.y').value)
+            yaw_deg = float(self.get_parameter('initial_pose.yaw_deg').value)
+            yaw_rad = math.radians(yaw_deg)
+
+        qx, qy, qz, qw = tf_transformations.quaternion_from_euler(0, 0, yaw_rad) # returns numpy.ndarray
+
+        self.get_logger().info(
+            f"FYI: calling service with initial pose: x={x:.2f}, y={y:.2f} yaw={yaw_deg:.1f} yaw(qz,qw)=({qz:.3f}, {qw:.3f})"
+        )
 
         req = StartTrajectory.Request()
         req.configuration_directory = self.config_dir
@@ -158,14 +202,14 @@ class InitialPosePub(Node):
         req.use_initial_pose = True
         req.relative_to_trajectory_id = 0
 
-        req.initial_pose.position.x = pos.x
-        req.initial_pose.position.y = pos.y
-        req.initial_pose.position.z = pos.z
+        req.initial_pose.position.x = x
+        req.initial_pose.position.y = y
+        req.initial_pose.position.z = 0.0 # 2D
 
-        req.initial_pose.orientation.x = ori.x
-        req.initial_pose.orientation.y = ori.y
-        req.initial_pose.orientation.z = ori.z
-        req.initial_pose.orientation.w = ori.w
+        req.initial_pose.orientation.x = qx
+        req.initial_pose.orientation.y = qy
+        req.initial_pose.orientation.z = qz
+        req.initial_pose.orientation.w = qw
 
         future = self.start_client.call_async(req)
         rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
