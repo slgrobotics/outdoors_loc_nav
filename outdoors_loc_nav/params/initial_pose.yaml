@@ -4,6 +4,5 @@ initial_pose_pub:
     initial_pose:
       x: 0.0
       y: 0.0
-      yaw_deg: 30.0       # Initial orientation in ENU frame, degrees
-    old_trajectory_id: 0  # Cartographer old trajectory ID to be deleted
-    publish_delay: 2.0    # seconds to wait before calling trajectory service
+    old_trajectory_id: 0  # Cartographer old trajectory ID to be deleted initially
+    cycle_period: 2.0     # cycling period for the state machine

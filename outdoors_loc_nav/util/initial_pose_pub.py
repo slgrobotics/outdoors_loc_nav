@@ -33,11 +33,8 @@ class InitialPosePub(Node):
         self.declare_parameter('config_base', 'cartographer_lds_2d.lua')
         self.declare_parameter('initial_pose.x', 0.0)
         self.declare_parameter('initial_pose.y', 0.0)
-        self.declare_parameter('initial_pose.yaw_deg', 0.0)
         self.declare_parameter('old_trajectory_id', 1)
-        self.declare_parameter('publish_delay', 1.0)  # how often timer wakes up to check preconditions
-        self.declare_parameter('service_wait_timeout', 5.0)  # seconds to wait for service availability
-        self.declare_parameter('service_call_timeout', 5.0)  # seconds to wait for service response
+        self.declare_parameter('cycle_period', 1.0)  # how often timer wakes up to check preconditions
 
         self.config_dir = self.get_parameter('config_dir').value
         self.config_base = self.get_parameter('config_base').value
@@ -46,15 +43,18 @@ class InitialPosePub(Node):
             raise RuntimeError("mandatory parameter 'config_dir' must be set.")
 
         self.old_trajectory_id = int(self.get_parameter('old_trajectory_id').value)
-        self.service_wait_timeout = float(self.get_parameter('service_wait_timeout').value)
-        self.service_call_timeout = float(self.get_parameter('service_call_timeout').value)
 
         self.get_logger().info(f"Using cartographer configuration: {self.config_dir}/{self.config_base}")
 
+        # preset values used with IMU orientation to create initial pose: 
+        self.latest_x = self.get_parameter('initial_pose.x').value
+        self.latest_y = self.get_parameter('initial_pose.y').value
+
         # ----- runtime state -----
         self.latest_imu_yaw = None    # updated from IMU
-        self.latest_pose_msg = None   # updated from /initialpose (RViz)
-        self.state = "IDLE"           # IDLE → FINISHING → STARTING
+        self.latest_pose_msg = None   # updated from /initialpose (RViz "2D Pose Estimate")
+
+        self.state = "BEGINNING"       # BEGINNING -> WORKING -> TRAJ_FINISH -> TRAJ_START -> IDLE -> WORKING
 
         # ----- subscriptions -----
         # IMU subscription - default QoS is fine for IMU
@@ -83,8 +83,8 @@ class InitialPosePub(Node):
         self.start_client = self.create_client(StartTrajectory, '/start_trajectory')
 
         # ----- periodic check timer to orchestrate sequence without blocking executor -----
-        delay = float(self.get_parameter('publish_delay').value)
-        self.timer = self.create_timer(delay, self.timer_callback)
+        cycle_period = float(self.get_parameter('cycle_period').value)
+        self.timer = self.create_timer(cycle_period, self.timer_callback)
 
         self.get_logger().info("initial_pose_pub ready - waiting for IMU or /initialpose - or will use params...")
 
@@ -103,13 +103,18 @@ class InitialPosePub(Node):
         #self.get_logger().debug(f"IMU yaw: {yaw_deg:.2f}°") # debug-level info (rate-limited by timer)
         #self.get_logger().info(f"IMU yaw: {yaw_deg:.2f}°")
 
+        if self.state == "BEGINNING":
+            self.state = "WORKING"  # IMU yaw available, get to work
+
     def pose_estimate_callback(self, msg: PoseWithCovarianceStamped) -> None:
 
         """Store the RViz pose; it overrides parameter pose or IMU when present."""
         self.get_logger().info("=========== Received /initialpose from RViz - will use it as initial pose. ==============")
 
         self.latest_pose_msg = msg
-        self.state = "IDLE"   # trigger restart on next timer tick
+
+        if self._have_pose() and self.state == "IDLE":
+            self.state = "WORKING"   # trigger restart on next timer tick
 
     # ------------------------------------------------------------
     # Timer State Machine
@@ -122,28 +127,36 @@ class InitialPosePub(Node):
             - cartographer services are available
             - we have either: /initialpose from RViz OR latest IMU yaw OR a parameter fallback pose
         """
-        if self.state == "IDLE":
+        if self.state == "BEGINNING":   # the beginning
+
             if not self._have_pose():
-                self.get_logger().info("IP: IDLE - Waiting for initial orientation/pose...")
+                self.get_logger().info("SM: BEGINNING - Waiting for initial orientation from IMU or RViz...")
                 return
 
+            self.get_logger().info("SM: have pose, BEGINNING -> WORKING")
+            self.state = "WORKING"
+
+        elif self.state == "WORKING":  # IMU yaw available, get to work the services
+            
             if not self.finish_client.service_is_ready():
-                self.get_logger().info("IP: IDLE - Waiting for Cartographer services...")
+                self.get_logger().info("SM: WORKING - Waiting for Cartographer services...")
                 return
 
             # Ready → start sequence
-            self.get_logger().info("OK: Cartographer services ready → start sequence: IDLE -> FINISHING")
-            self.state = "FINISHING"
-            self._call_finish()
+            self.get_logger().info("SM: OK: Cartographer services ready, WORKING -> TRAJ_FINISH")
+            self.state = "TRAJ_FINISH"
 
-        elif self.state == "FINISHING":
-            # waiting for service callback
-            self.get_logger().info("IP: FINISHING - Waiting for Cartographer services...")
-            pass
+        elif self.state == "TRAJ_FINISH":
+            self.get_logger().info("SM: TRAJ_FINISH - finishing trajectory...")
+            self._call_finish_trajectory()
 
-        elif self.state == "STARTING":
-            # waiting for service callback
-            self.get_logger().info("IP: STARTING - Waiting for Cartographer services...")
+        elif self.state == "TRAJ_START":
+            self.get_logger().info("SM: TRAJ_START - starting new trajectory...")
+            self._call_start_trajectory()
+
+        elif self.state == "IDLE":
+            # waiting for RViz "2D Pose Estimate"
+            #self.get_logger().info("SM: IDLE")
             pass
 
     # ------------------------------------------------------------
@@ -155,7 +168,10 @@ class InitialPosePub(Node):
         return self.latest_pose_msg is not None or self.latest_imu_yaw is not None
 
     def _build_pose(self):
-        """Return (x,y,qx,qy,qz,qw)."""
+        """
+        only call if _have_pose()
+        Return (x,y,qx,qy,qz,qw).
+        """
         if self.latest_pose_msg:
             p = self.latest_pose_msg.pose.pose.position
             o = self.latest_pose_msg.pose.pose.orientation
@@ -169,7 +185,7 @@ class InitialPosePub(Node):
             yaw_deg = math.degrees(yaw_rad)
 
             self.get_logger().info(
-                f"RViz 2D Pose Estimate: x={x:.2f}, y={y:.2f}, "
+                f"RViz 2D Pose Estimate: x={p.x:.2f}, y={p.y:.2f}, "
                 f"yaw={yaw_deg:.1f} deg (qz,qw)=({o.z:.3f}, {o.w:.3f})"
             )
 
@@ -193,48 +209,43 @@ class InitialPosePub(Node):
             return p.x, p.y, o.x, o.y, o.z, o.w
 
         # else IMU/parameters
-        x = self.get_parameter('initial_pose.x').value
-        y = self.get_parameter('initial_pose.y').value
-        yaw = self.latest_imu_yaw
-        if yaw is None:
-            yaw = math.radians(self.get_parameter('initial_pose.yaw_deg').value)
+        qx, qy, qz, qw = tf_transformations.quaternion_from_euler(0, 0, self.latest_imu_yaw)
 
-        qx, qy, qz, qw = tf_transformations.quaternion_from_euler(0, 0, yaw)
-        return x, y, qx, qy, qz, qw
+        return self.latest_x, self.latest_y, qx, qy, qz, qw
 
     # ------------------------------------------------------------
     # Service Calls (Async)
     # ------------------------------------------------------------
 
-    def _call_finish(self):
+    def _call_finish_trajectory(self):
         req = FinishTrajectory.Request()
         req.trajectory_id = int(self.old_trajectory_id)
 
+        self.get_logger().info(f"IP: Calling /finish_trajectory service...  trajectory_id: {req.trajectory_id}")
+
         future = self.finish_client.call_async(req)
         future.add_done_callback(self._on_finish_done)
-        self.get_logger().info(f"IP: Calling /finish_trajectory service...  trajectory_id: {self.old_trajectory_id}")
 
     def _on_finish_done(self, future):
         if future.result() is None:
-            self.get_logger().error("Error: finish_trajectory FAILED")
+            self.get_logger().error("Error: finish_trajectory FAILED, incrementing trajectory_id")
             self.old_trajectory_id += 1
-            self.state = "IDLE"
+            self._call_finish_trajectory()  # try again
             return
 
         self.get_logger().info(f"OK: finish_trajectory id: {self.old_trajectory_id} - Success")
         self.old_trajectory_id += 1
-        self.state = "STARTING"
-        self._call_start()
+        self.state = "TRAJ_START"
 
 
-    def _call_start(self):
+    def _call_start_trajectory(self):
         x, y, qx, qy, qz, qw = self._build_pose()
 
         req = StartTrajectory.Request()
         req.configuration_directory = self.config_dir
         req.configuration_basename = self.config_base
         req.use_initial_pose = True
-        req.relative_to_trajectory_id = 0
+        #req.relative_to_trajectory_id = 0
 
         req.initial_pose.position.x = x
         req.initial_pose.position.y = y
@@ -258,6 +269,7 @@ class InitialPosePub(Node):
         else:
             self.get_logger().info("OK: start_trajectory service Success (map aligned!)")
 
+        self.get_logger().info("SM: IDLE")
         self.state = "IDLE"  # allow repeated RViz resets
 
 
