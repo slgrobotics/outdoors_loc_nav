@@ -208,7 +208,7 @@ class InitialPosePub(Node):
 
     def _call_finish(self):
         req = FinishTrajectory.Request()
-        req.trajectory_id = int(self.old_id)
+        req.trajectory_id = int(self.old_trajectory_id)
 
         future = self.finish_client.call_async(req)
         future.add_done_callback(self._on_finish_done)
