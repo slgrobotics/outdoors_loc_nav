@@ -262,11 +262,36 @@ class InitialPosePub(Node):
         future.add_done_callback(self._on_get_states_done)
 
     def _on_get_states_done(self, future):
-        if future.result() is None:
+        response = future.result()
+        t_states = response.trajectory_states
+
+        if response is None:
             self.get_logger().error("Error: get_trajectory_states FAILED")
             return
 
-        self.get_logger().info(f"OK: get_trajectory_states - Success")
+        self.get_logger().info("OK: get_trajectory_states - Success")
+
+        # ----------- Decode & Log Trajectories ----------------
+        if not t_states:
+            self.get_logger().warn("No active trajectories reported by Cartographer.")
+        else:
+            self.get_logger().info("========== Cartographer Trajectory States ==========")
+
+            for traj_id, traj_state in zip(
+                t_states.trajectory_id,
+                t_states.trajectory_state,
+            ):
+                state_str = {
+                    0: "ACTIVE",
+                    1: "FINISHED",
+                    2: "FROZEN",
+                    3: "DELETED"
+                }.get(traj_state, f"UNKNOWN({traj_state})")
+
+                self.get_logger().info(f"Trajectory ID {traj_id}: State: {traj_state} - {state_str}")
+
+            self.get_logger().info("===================================================")
+
         self.state = "TRAJ_FINISH"
 
 
