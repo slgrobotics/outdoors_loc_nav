@@ -9,24 +9,22 @@ from cartographer_ros_msgs.srv import GetTrajectoryStates, StartTrajectory, Fini
 import math
 from rclpy.duration import Duration
 
-
 class InitialPosePub(Node):
     """
     Robust Initial Pose → Cartographer starter.
 
     Behavior & best-practices:
-      * Wait for cartographer services to be available (with reasonable timeouts).
-      * Use IMU yaw as preferred initial orientation; fall back to parameter-provided pose.
-      * Accept user RViz /initialpose messages and use them instead of the parameter pose.
-      * Use a QoS profile compatible with RViz's latched publisher for /initialpose.
-      * Use rclpy.spin_until_future_complete to wait for service responses, with timeouts.
-      * Avoid blocking the executor for long periods.
+      * Wait for cartographer services to be available.
+      * Use IMU yaw as preferred initial orientation; X and Y defined by parameters.
+      * Accept user RViz /initialpose messages and use them anytime.
+      * Query trajectories and their states, "finish" the Active ones.
+      * Non-blocking behavior (callbacks for async responses)
       *
       * See https://chatgpt.com/s/t_692e476cea788191a873acf0b5c25a5e
     """
 
     def __init__(self):
-        super().__init__('initial_pose_pub')
+        super().__init__('initial_pose_serv')
 
         # ----- parameters -----
         self.declare_parameter('config_dir', '')  # required
@@ -44,7 +42,7 @@ class InitialPosePub(Node):
 
         self.get_logger().info(f"Using cartographer configuration: {self.config_dir}/{self.config_base}")
 
-        # preset values used with IMU orientation to create initial pose: 
+        # preset values used with IMU orientation to create initial pose, can be overwritten by RViz /initialpose: 
         self.latest_x = self.get_parameter('initial_pose.x').value
         self.latest_y = self.get_parameter('initial_pose.y').value
 
@@ -66,7 +64,6 @@ class InitialPosePub(Node):
             )
         else:
             self.get_logger().info("FYI: use_imu_yaw is false, will wait for RViz '2D Pose Estimate'")
-
 
         # /initialpose MUST be BEST_EFFORT (RViz publishes "2D Pose Estimate" that way)
         initialpose_qos = QoSProfile(depth=10)
@@ -105,14 +102,14 @@ class InitialPosePub(Node):
         self.finish_client = self.create_client(FinishTrajectory, '/finish_trajectory')
         self.start_client = self.create_client(StartTrajectory, '/start_trajectory')
 
-        self.active_trajectories = []
+        self.active_trajectories = []  # convenience list of active IDs
         self._finish_index = 0
 
         # ----- periodic check timer to orchestrate sequence without blocking executor -----
         cycle_period = float(self.get_parameter('cycle_period').value)
         self.timer = self.create_timer(cycle_period, self.timer_callback)
 
-        self.get_logger().info("OK: initial_pose_pub node ready")
+        self.get_logger().info("OK: initial_pose_serv node ready")
 
 
     # ----------------- callbacks -----------------
@@ -166,10 +163,10 @@ class InitialPosePub(Node):
             self.state = "SERV_WAIT"
 
         elif self.state == "SERV_WAIT":  # IMU yaw available, wait for the services
-            
-            if not self.trajectory_states_client.service_is_ready() \
-                    or not self.finish_client.service_is_ready() \
-                    or not self.start_client.service_is_ready():
+            # check that all services are available (non-blocking)
+            if not (self.trajectory_states_client.service_is_ready() and
+                    self.finish_client.service_is_ready() and
+                    self.start_client.service_is_ready()):
                 self.get_logger().info("SM: SERV_WAIT - Waiting for Cartographer services...")
                 return
 
@@ -190,7 +187,7 @@ class InitialPosePub(Node):
             self._call_start_trajectory()
 
         elif self.state == "IDLE":
-            # waiting for RViz "2D Pose Estimate"
+            # waiting for RViz /initialpose ("2D Pose Estimate")
             #self.get_logger().info("SM: IDLE")
             pass
 
@@ -263,44 +260,54 @@ class InitialPosePub(Node):
 
     def _on_get_states_done(self, future):
         response = future.result()
-        t_states = response.trajectory_states
 
         if response is None:
             self.get_logger().error("Error: get_trajectory_states FAILED")
+            # go back to SERV_WAIT to retry later
+            self.state = "SERV_WAIT"
             return
 
         self.get_logger().info("OK: get_trajectory_states - Success")
 
+        # response.trajectory_states is a message with parallel arrays: trajectory_id[], trajectory_state[]
+        t_states = response.trajectory_states
+
+        # reset list
+        self.active_trajectories = []
+
         # ----------- Decode & Log Trajectories ----------------
-        if not t_states:
-            self.get_logger().warn("No active trajectories reported by Cartographer.")
+        if not t_states or len(t_states.trajectory_id) == 0:
+            self.get_logger().warn("No trajectories reported by Cartographer.")
         else:
             self.get_logger().info("========== Cartographer Trajectory States ==========")
-
-            self.active_trajectories = []
 
             for traj_id, traj_state in zip(
                 t_states.trajectory_id,
                 t_states.trajectory_state,
             ):
+                tid = int(traj_id)
+                tst = int(traj_state)
                 state_str = {
                     0: "ACTIVE",
                     1: "FINISHED",
                     2: "FROZEN",
                     3: "DELETED"
-                }.get(traj_state, f"UNKNOWN({traj_state})")
+                }.get(tst, f"UNKNOWN({traj_state})")
 
-                self.get_logger().info(f"Trajectory ID {traj_id}: State: {traj_state} - {state_str}")
+                self.get_logger().info(f"Trajectory ID {tid}: State: {tst} - {state_str}")
 
-                if traj_state == 0:
-                    self.active_trajectories.append(int(traj_id))
+                if tst == 0:
+                    self.active_trajectories.append(tid) # IDs to "finish"
 
             self.get_logger().info("===================================================")
 
+        # decide next state
         if not self.active_trajectories:
             self.get_logger().info("No active trajectories to finish.")
             self.state = "TRAJ_START"
         else:
+            # prepare to finish all active trajectories
+            self._finish_index = 0
             self.state = "TRAJ_FINISH"
 
 
@@ -308,7 +315,7 @@ class InitialPosePub(Node):
     def _call_finish_trajectory(self):
 
         if self._finish_index >= len(self.active_trajectories):
-            self.get_logger().info("All active trajectories finished.")
+            self.get_logger().info("OK: All active trajectories finished.")
             self.state = "TRAJ_START"
             self._finish_index = 0
             return
@@ -316,7 +323,7 @@ class InitialPosePub(Node):
         traj_id = self.active_trajectories[self._finish_index]
 
         req = FinishTrajectory.Request()
-        req.trajectory_id = traj_id
+        req.trajectory_id = int(traj_id)
 
         self.get_logger().info(
             f"IP: Calling /finish_trajectory service for trajectory_id={traj_id}"
@@ -332,6 +339,7 @@ class InitialPosePub(Node):
             )
             # Skip this one and continue
             self._finish_index += 1
+            # schedule next attempt (non-blocking chain)
             self._call_finish_trajectory()
             return
 
@@ -339,6 +347,7 @@ class InitialPosePub(Node):
         self.get_logger().info(f"OK: Finished trajectory id={traj_id} - Success")
 
         self._finish_index += 1
+        # chain to next finish (non-blocking)
         self._call_finish_trajectory()
 
     # Start new trajectory with position and orientation we desire:
@@ -371,8 +380,17 @@ class InitialPosePub(Node):
     def _on_start_done(self, future):
         if future.result() is None:
             self.get_logger().error("Error: start_trajectory service FAILED")
-        else:
-            self.get_logger().info("OK: start_trajectory service Success (map aligned!)")
+            # try re-querying trajectories next cycle
+            self.state = "TRAJ_QUERY"
+            return
+
+        # successful start: update known trajectories with returned trajectory_id
+        response = future.result()
+        try:
+            new_id = int(response.trajectory_id)
+            self.get_logger().info(f"OK: start_trajectory service Success (trajectory_id={new_id})")
+        except Exception:
+            self.get_logger().info("OK: start_trajectory service Success (unknown trajectory id)")
 
         self.get_logger().info("SM: IDLE")
         self.state = "IDLE"  # allow repeated RViz resets

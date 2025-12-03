@@ -1,5 +1,5 @@
 
-initial_pose_pub:
+initial_pose_serv:
   ros__parameters:
     initial_pose:
       x: 0.0

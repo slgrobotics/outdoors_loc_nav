@@ -27,7 +27,7 @@ setup(
     entry_points={
         'console_scripts': [
             'orientation_service = outdoors_loc_nav.util.orientation_service:main',
-            'initial_pose_pub = outdoors_loc_nav.util.initial_pose_pub:main',
+            'initial_pose_serv = outdoors_loc_nav.util.initial_pose_serv:main',
         ],
     },
 )

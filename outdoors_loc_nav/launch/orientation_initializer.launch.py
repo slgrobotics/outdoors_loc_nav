@@ -54,11 +54,11 @@ def generate_launch_description():
         #     output='screen'
         # ),
 
-        # --- Initial pose publisher (auto-queries /robot/get_orientation) ---
+        # --- Initial pose publisher (queries /imu/data or /initialpose, calls Cartographer services) ---
         Node(
             package='outdoors_loc_nav',
-            executable='initial_pose_pub',
-            name='initial_pose_pub',
+            executable='initial_pose_serv',
+            name='initial_pose_serv',
             namespace=namespace,
             parameters=[initial_pose_params, {'config_dir': config_dir}, {'config_base': config_base}],
             output='screen'
