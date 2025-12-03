@@ -208,6 +208,10 @@ class InitialPosePub(Node):
             p = self.latest_pose_msg.pose.pose.position
             o = self.latest_pose_msg.pose.pose.orientation
 
+            # the /initialpose overrides previous parameter-set values (usually 0,0) used when only IMU was available
+            self.latest_x = p.x
+            self.latest_y = p.y
+
             # ------- for logging only -------------------------------------
 
             # Convert quaternion → yaw
@@ -238,7 +242,7 @@ class InitialPosePub(Node):
                 )
             # ------- end for logging only --------------------------------
 
-            return p.x, p.y, o.x, o.y, o.z, o.w
+            return self.latest_x, self.latest_y, o.x, o.y, o.z, o.w
 
         # else IMU/parameters
         qx, qy, qz, qw = tf_transformations.quaternion_from_euler(0, 0, self.latest_imu_yaw)
