@@ -5,7 +5,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPo
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Imu
 import tf_transformations
-from cartographer_ros_msgs.srv import StartTrajectory, FinishTrajectory
+from cartographer_ros_msgs.srv import GetTrajectoryStates, StartTrajectory, FinishTrajectory
 import math
 from rclpy.duration import Duration
 
@@ -55,7 +55,7 @@ class InitialPosePub(Node):
         self.latest_imu_yaw = None    # updated from IMU
         self.latest_pose_msg = None   # updated from /initialpose (RViz "2D Pose Estimate")
 
-        self.state = "BEGINNING"       # BEGINNING -> WORKING -> TRAJ_FINISH -> TRAJ_START -> IDLE -> WORKING
+        self.state = "BEGINNING"       # BEGINNING -> SERV_WAIT -> TRAJ_FINISH -> TRAJ_START -> IDLE -> SERV_WAIT
 
         # ----- subscriptions -----
         # IMU subscription - default QoS is fine for IMU
@@ -85,6 +85,26 @@ class InitialPosePub(Node):
         )
 
         # ----- Cartographer service clients -----
+        #
+        #  Available services:
+        #       /get_trajectory_states
+        #       /finish_trajectory
+        #       /start_trajectory
+        #       /read_metrics
+        #       /submap_query
+        #       /trajectory_query
+        #       /write_state
+        #
+        #  Topics published by Cartographer:  (not used here)
+        #       /scan_matched_points2
+        #       /constraint_list
+        #       /submap_list
+        #       /trajectory_node_list
+        #       /landmark_poses_list
+        #       /tf
+        #
+
+        self.trajectory_states_client = self.create_client(GetTrajectoryStates, '/get_trajectory_states')
         self.finish_client = self.create_client(FinishTrajectory, '/finish_trajectory')
         self.start_client = self.create_client(StartTrajectory, '/start_trajectory')
 
@@ -92,7 +112,7 @@ class InitialPosePub(Node):
         cycle_period = float(self.get_parameter('cycle_period').value)
         self.timer = self.create_timer(cycle_period, self.timer_callback)
 
-        self.get_logger().info("OK: initial_pose_pub ready")
+        self.get_logger().info("OK: initial_pose_pub node ready")
 
 
     # ----------------- callbacks -----------------
@@ -110,7 +130,7 @@ class InitialPosePub(Node):
         #self.get_logger().info(f"IMU yaw: {yaw_deg:.2f}°")
 
         if self.state == "BEGINNING":
-            self.state = "WORKING"  # IMU yaw available, get to work
+            self.state = "SERV_WAIT"  # IMU yaw available, check services and get to work
 
     def pose_estimate_callback(self, msg: PoseWithCovarianceStamped) -> None:
 
@@ -120,10 +140,10 @@ class InitialPosePub(Node):
         self.latest_pose_msg = msg
 
         if self._have_pose() and self.state == "IDLE":
-            self.state = "WORKING"   # trigger restart on next timer tick
+            self.state = "SERV_WAIT"   # check services and get to work on the next timer tick
 
     # ------------------------------------------------------------
-    # Timer State Machine
+    # Timer for the State Machine
     # ------------------------------------------------------------
 
     def timer_callback(self):
@@ -142,18 +162,24 @@ class InitialPosePub(Node):
                     self.get_logger().info("SM: BEGINNING - Waiting for initial orientation from RViz '2D Pose Estimate'...")
                 return
 
-            self.get_logger().info("SM: have pose, BEGINNING -> WORKING")
-            self.state = "WORKING"
+            self.get_logger().info("SM: have pose, BEGINNING -> SERV_WAIT")
+            self.state = "SERV_WAIT"
 
-        elif self.state == "WORKING":  # IMU yaw available, get to work the services
+        elif self.state == "SERV_WAIT":  # IMU yaw available, wait for the services
             
-            if not self.finish_client.service_is_ready():
-                self.get_logger().info("SM: WORKING - Waiting for Cartographer services...")
+            if not self.trajectory_states_client.service_is_ready() \
+                    or not self.finish_client.service_is_ready() \
+                    or not self.start_client.service_is_ready():
+                self.get_logger().info("SM: SERV_WAIT - Waiting for Cartographer services...")
                 return
 
-            # Ready → start sequence
-            self.get_logger().info("SM: OK: Cartographer services ready, WORKING -> TRAJ_FINISH")
-            self.state = "TRAJ_FINISH"
+            # Services ready → start sequence
+            self.get_logger().info("SM: OK: Cartographer services ready, SERV_WAIT -> TRAJ_QUERY")
+            self.state = "TRAJ_QUERY"
+
+        elif self.state == "TRAJ_QUERY":
+            self.get_logger().info("SM: TRAJ_QUERY - listing trajectories...")
+            self._call_get_trajectory_states()
 
         elif self.state == "TRAJ_FINISH":
             self.get_logger().info("SM: TRAJ_FINISH - finishing trajectory...")
@@ -226,6 +252,25 @@ class InitialPosePub(Node):
     # Service Calls (Async)
     # ------------------------------------------------------------
 
+    # List available trajectories:
+    def _call_get_trajectory_states(self):
+        req = GetTrajectoryStates.Request()
+
+        self.get_logger().info("IP: Calling /get_trajectory_states service...")
+
+        future = self.trajectory_states_client.call_async(req)
+        future.add_done_callback(self._on_get_states_done)
+
+    def _on_get_states_done(self, future):
+        if future.result() is None:
+            self.get_logger().error("Error: get_trajectory_states FAILED")
+            return
+
+        self.get_logger().info(f"OK: get_trajectory_states - Success")
+        self.state = "TRAJ_FINISH"
+
+
+    # Finish (delete) trajectories:
     def _call_finish_trajectory(self):
         req = FinishTrajectory.Request()
         req.trajectory_id = int(self.old_trajectory_id)
@@ -246,15 +291,16 @@ class InitialPosePub(Node):
         self.old_trajectory_id += 1
         self.state = "TRAJ_START"
 
-
+    # Start new trajectory with position and orientation we desire:
     def _call_start_trajectory(self):
         x, y, qx, qy, qz, qw = self._build_pose()
 
         req = StartTrajectory.Request()
+
         req.configuration_directory = self.config_dir
         req.configuration_basename = self.config_base
         req.use_initial_pose = True
-        #req.relative_to_trajectory_id = 0
+        req.relative_to_trajectory_id = 0
 
         req.initial_pose.position.x = x
         req.initial_pose.position.y = y
