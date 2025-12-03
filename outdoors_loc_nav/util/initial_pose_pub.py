@@ -33,7 +33,6 @@ class InitialPosePub(Node):
         self.declare_parameter('config_base', 'cartographer_lds_2d.lua')
         self.declare_parameter('initial_pose.x', 0.0)
         self.declare_parameter('initial_pose.y', 0.0)
-        self.declare_parameter('old_trajectory_id', 1)
         self.declare_parameter('cycle_period', 1.0)  # how often timer wakes up to check preconditions
         self.declare_parameter('use_imu_yaw', True)  # if false, wait for RViz "2D Pose Estimate"
 
@@ -42,8 +41,6 @@ class InitialPosePub(Node):
         if not self.config_dir:
             self.get_logger().fatal("Mandatory parameter 'config_dir' was not set. Shutting down node.")
             raise RuntimeError("mandatory parameter 'config_dir' must be set.")
-
-        self.old_trajectory_id = int(self.get_parameter('old_trajectory_id').value)
 
         self.get_logger().info(f"Using cartographer configuration: {self.config_dir}/{self.config_base}")
 
@@ -107,6 +104,9 @@ class InitialPosePub(Node):
         self.trajectory_states_client = self.create_client(GetTrajectoryStates, '/get_trajectory_states')
         self.finish_client = self.create_client(FinishTrajectory, '/finish_trajectory')
         self.start_client = self.create_client(StartTrajectory, '/start_trajectory')
+
+        self.active_trajectories = []
+        self._finish_index = 0
 
         # ----- periodic check timer to orchestrate sequence without blocking executor -----
         cycle_period = float(self.get_parameter('cycle_period').value)
@@ -182,11 +182,11 @@ class InitialPosePub(Node):
             self._call_get_trajectory_states()
 
         elif self.state == "TRAJ_FINISH":
-            self.get_logger().info("SM: TRAJ_FINISH - finishing trajectory...")
+            self.get_logger().info("SM: TRAJ_FINISH - finishing ACTIVE trajectories...")
             self._call_finish_trajectory()
 
         elif self.state == "TRAJ_START":
-            self.get_logger().info("SM: TRAJ_START - starting new trajectory...")
+            self.get_logger().info("SM: TRAJ_START - starting new trajectory using specified pose...")
             self._call_start_trajectory()
 
         elif self.state == "IDLE":
@@ -277,6 +277,8 @@ class InitialPosePub(Node):
         else:
             self.get_logger().info("========== Cartographer Trajectory States ==========")
 
+            self.active_trajectories = []
+
             for traj_id, traj_state in zip(
                 t_states.trajectory_id,
                 t_states.trajectory_state,
@@ -290,31 +292,54 @@ class InitialPosePub(Node):
 
                 self.get_logger().info(f"Trajectory ID {traj_id}: State: {traj_state} - {state_str}")
 
+                if traj_state == 0:
+                    self.active_trajectories.append(int(traj_id))
+
             self.get_logger().info("===================================================")
 
-        self.state = "TRAJ_FINISH"
+        if not self.active_trajectories:
+            self.get_logger().info("No active trajectories to finish.")
+            self.state = "TRAJ_START"
+        else:
+            self.state = "TRAJ_FINISH"
 
 
     # Finish (delete) trajectories:
     def _call_finish_trajectory(self):
-        req = FinishTrajectory.Request()
-        req.trajectory_id = int(self.old_trajectory_id)
 
-        self.get_logger().info(f"IP: Calling /finish_trajectory service...  trajectory_id: {req.trajectory_id}")
+        if self._finish_index >= len(self.active_trajectories):
+            self.get_logger().info("All active trajectories finished.")
+            self.state = "TRAJ_START"
+            self._finish_index = 0
+            return
+
+        traj_id = self.active_trajectories[self._finish_index]
+
+        req = FinishTrajectory.Request()
+        req.trajectory_id = traj_id
+
+        self.get_logger().info(
+            f"IP: Calling /finish_trajectory service for trajectory_id={traj_id}"
+        )
 
         future = self.finish_client.call_async(req)
         future.add_done_callback(self._on_finish_done)
 
     def _on_finish_done(self, future):
         if future.result() is None:
-            self.get_logger().error("Error: finish_trajectory FAILED, incrementing trajectory_id")
-            self.old_trajectory_id += 1
-            self._call_finish_trajectory()  # try again
+            self.get_logger().error(
+                f"Error: finish_trajectory FAILED for id={self.active_trajectories[self._finish_index]}"
+            )
+            # Skip this one and continue
+            self._finish_index += 1
+            self._call_finish_trajectory()
             return
 
-        self.get_logger().info(f"OK: finish_trajectory id: {self.old_trajectory_id} - Success")
-        self.old_trajectory_id += 1
-        self.state = "TRAJ_START"
+        traj_id = self.active_trajectories[self._finish_index]
+        self.get_logger().info(f"OK: Finished trajectory id={traj_id} - Success")
+
+        self._finish_index += 1
+        self._call_finish_trajectory()
 
     # Start new trajectory with position and orientation we desire:
     def _call_start_trajectory(self):
