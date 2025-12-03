@@ -52,7 +52,7 @@ class InitialPosePub(Node):
         self.latest_imu_yaw = None    # updated from IMU
         self.latest_pose_msg = None   # updated from /initialpose (RViz "2D Pose Estimate")
 
-        self.state = "BEGINNING"       # BEGINNING -> SERV_WAIT -> TRAJ_FINISH -> TRAJ_START -> IDLE -> SERV_WAIT
+        self.state = "BEGINNING"       # BEGINNING -> SERV_WAIT -> TRAJ_QUERY -> TRAJ_FINISH -> TRAJ_START -> IDLE -> SERV_WAIT
 
         # ----- subscriptions -----
         # IMU subscription - default QoS is fine for IMU
@@ -350,7 +350,7 @@ class InitialPosePub(Node):
         req.configuration_directory = self.config_dir
         req.configuration_basename = self.config_base
         req.use_initial_pose = True
-        req.relative_to_trajectory_id = 0
+        req.relative_to_trajectory_id = 0  # see https://chatgpt.com/s/t_692fa95987c88191a8229c195106f82d
 
         req.initial_pose.position.x = x
         req.initial_pose.position.y = y

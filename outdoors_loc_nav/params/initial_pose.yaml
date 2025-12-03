@@ -4,5 +4,5 @@ initial_pose_pub:
     initial_pose:
       x: 0.0
       y: 0.0
-    cycle_period: 2.0     # cycling period for the state machine
+    cycle_period: 1.0     # cycling period for the state machine
     #use_imu_yaw: false    # if false, wait for RViz "2D Pose Estimate". Default true
