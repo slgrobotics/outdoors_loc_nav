@@ -42,15 +42,15 @@ options = {
   map_frame = "map",
 
   -- Cartographer should track motion in IMU frame
-  tracking_frame = "imu_link",
+  tracking_frame = "base_footprint", -- places map at footprint level
 
   -- PUBLISH POSE IN BASE FRAME
-  published_frame = "odom_",
+  published_frame = "base_link",
 
   odom_frame = "odom",
 
   -- We already publish odom->base_link via EKF, so:
-  provide_odom_frame = false,
+  provide_odom_frame = true,
 
   -- publish a pure 2D pose for Nav2
   publish_frame_projected_to_2d = true,
@@ -62,11 +62,11 @@ options = {
 --
 -- ================================
 
-  use_odometry = false, -- when true, needs remapping: ('odom','odometry/global', 'odometry/local' or 'diff_cont/odom')
+  use_odometry = true, -- when true, needs remapping: ('odom','odometry/global', 'odometry/local' or 'diff_cont/odom')
   use_pose_extrapolator = false,
 
   -- Enabling this as we use GPS:
-  use_nav_sat = true,  -- when true, needs remapping: ('fix','gps/filtered')
+  use_nav_sat = false,  -- when true, needs remapping: ('fix','gps/filtered')
 
   use_landmarks = false,
 
@@ -96,7 +96,7 @@ options = {
 --     - minimal changes from defaults:
 
 MAP_BUILDER.use_trajectory_builder_2d = true
-TRAJECTORY_BUILDER_2D.use_imu_data = true
+TRAJECTORY_BUILDER_2D.use_imu_data = false
 TRAJECTORY_BUILDER_2D.num_accumulated_range_data = 10
 
 -- =========================================
