@@ -32,7 +32,10 @@ options = {
 --     https://google-cartographer-ros.readthedocs.io/en/latest/going_further.html
 --     https://google-cartographer-ros.readthedocs.io/en/latest/algo_walkthrough.html
 --
+--     https://medium.com/@kabilankb2003/ros2-humble-cartographer-on-nvidia-jetson-nano-with-rplidar-c0dea4480b78
+--
 --     https://chatgpt.com/s/t_692a1fbba6f88191a446113937aa3ff4
+--     https://chatgpt.com/s/t_6931ba6e095c8191b2eb13eb2c4dfff6
 --
 
 -- ================================
@@ -41,7 +44,8 @@ options = {
 
   map_frame = "map",
 
-  -- Cartographer should track motion in IMU frame
+  -- Cartographer should track motion in IMU frame (imu_link), when 'use_imu_data=true'
+  -- Otherwise use this frame for map positioning
   tracking_frame = "base_footprint", -- places map at footprint level
 
   -- PUBLISH POSE IN BASE FRAME
