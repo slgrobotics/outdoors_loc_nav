@@ -12,7 +12,7 @@ You need to launch *your robot* and *navigation stack* separately.
 
 **Note:** Your robot should launch a *local EKF node* to fuse IMU and wheel odometry and publish the */odometry/local* topic.
 It would also publish a *odom → base_link* transform, which is important for the rest of the system.
-That’s the typical setup for indoor navigation. This package neither uses nor depends on that EKF, though your robot relies on it indoors.
+That’s the typical setup for indoor navigation. This package, except when using Cartographer, neither uses nor depends on that EKF, though your robot relies on it indoors.
 
 ### How to use
 
@@ -90,6 +90,41 @@ If you zoom a bit out in RViz, you will see aerial map
 ### On a real robot
 
 Here is a short [video](https://youtu.be/8MjJq1Rya98) - my [Dragger](https://github.com/slgrobotics/robots_bringup/tree/main/Docs/Dragger) robot navigating, using this package for localization ("*map_server*" mode).
+
+### Why Use the Map Server?
+
+In my outdoor experiments, I encounter two distinct navigation scenarios:
+
+1. Moving the robot while staying close to obstacles (e.g., buildings, fences, walls).
+2. Moving the robot far from any objects detectable by LiDAR.
+
+In both cases, a NavSat-based localizer is running, so global localization itself is not a problem.
+
+In the *first scenario*, mapping tools such as *SLAM Toolbox* can use LiDAR scans to incrementally build a map of the environment. However, Nav2 goals can only be set *within the boundaries of that map*. Since the map is limited by the LiDAR’s sensing range (typically ~5–12 meters in bright outdoor conditions), long-distance navigation is not feasible in this mode.
+
+The *second scenario* is where SLAM-based mapping fails entirely because there are no nearby environmental features. However, Nav2 still requires a map for building the *Global Costmap* and performing *global planning*. To enable this, I provide an *empty static map*, for example a 600 × 600 cell grid with 0.25 m resolution. This creates a virtual planning area extending about *150 meters* in each direction from the robot’s starting position.
+
+With this setup, I can set a goal anywhere within that area, and Nav2 will initially plan a straight path to it. As the robot moves, the LiDAR and sonars detect real obstacles, which dynamically appear in the *Local Costmap*. The local planner then adjusts the trajectory in real time to avoid those obstacles while still following the global plan.
+
+----------------------------
+
+### Useful links
+
+ROS2 and GPS data:
+- https://docs.ros.org/en/jade/api/robot_localization/html/integrating_gps.html - general principles
+- https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Sensors/GPS.md - how to set up GPS and more links
+
+SLAM Toolbox:
+- https://github.com/SteveMacenski/slam_toolbox
+- https://docs.nav2.org/tutorials/docs/navigation2_with_slam.html - Navigating while Mapping (SLAM)
+- https://automaticaddison.com/navigation-and-slam-using-the-ros-2-navigation-stack/
+
+Cartographer:
+- https://google-cartographer.readthedocs.io/en/latest/index.html
+- https://google-cartographer-ros.readthedocs.io/en/latest/index.html  - ROS2 inetgration
+
+Handling maps using Map Server:
+- https://automaticaddison.com/building-a-map-of-the-environment-using-slam-ros-2-jazzy/ (scroll down to "*Save the Map*")
 
 ----------------------------
 
