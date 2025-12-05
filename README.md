@@ -43,6 +43,7 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
 - for *Cartographer* you MUST start the robot in East (ENU "yaw=0") orientation. Cartographer does not query initial pose,
 and there is [no easy way](https://github.com/slgrobotics/outdoors_loc_nav/issues/1) to set it.
 - To change robot's orientation in Gazebo, look for '*initial_yaw*' launch argument in [robots/dragger/launch/dragger.drive.launch.py](https://github.com/slgrobotics/articubot_one/blob/dev/robots/dragger/launch/dragger.drive.launch.py)
+- The "*orientation_initializer.launch.py*" is my attempt to solve the Cartographer's initial orientation problem by calling its *trajectory services*. While it seems to work, it is still Work in Progress. 
 
 ### Nodes and Topics
 
@@ -60,7 +61,7 @@ Here are the steps (for complete machine setup refer to [this guide](https://git
 ```
 mkdir -p ~/robot_ws/src
 cd ~/robot_ws/src
-git clone https://github.com/slgrobotics/articubot_one.git -b dev
+git clone https://github.com/slgrobotics/articubot_one.git -b dev    # note: use the "dev" branch 
 git clone https://github.com/slgrobotics/ros_battery_monitoring.git
 git clone https://github.com/slgrobotics/scan_to_range.git
 git clone https://github.com/slgrobotics/outdoors_loc_nav.git
