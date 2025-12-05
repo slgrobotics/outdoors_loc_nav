@@ -112,7 +112,7 @@ With this setup, I can set a goal anywhere within that area, and Nav2 will initi
 ### Useful links
 
 ROS2 and GPS data:
-- https://docs.ros.org/en/jade/api/robot_localization/html/integrating_gps.html - general principles
+- https://docs.ros.org/en/jade/api/robot_localization/html/integrating_gps.html - general principles, ROS1 but still good
 - https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Sensors/GPS.md - how to set up GPS and more links
 
 SLAM Toolbox:
