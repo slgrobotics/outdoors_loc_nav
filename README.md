@@ -121,9 +121,10 @@ SLAM Toolbox:
 - https://automaticaddison.com/navigation-and-slam-using-the-ros-2-navigation-stack/
 
 Cartographer:
-- https://google-cartographer.readthedocs.io/en/latest/index.html
+- https://github.com/cartographer-project/cartographer - original (not maintained) repository
+- https://google-cartographer.readthedocs.io - docs
+- https://github.com/ros2/cartographer - ROS2 integration fork, code
 - https://google-cartographer-ros.readthedocs.io/en/latest/index.html  - ROS2 integration, docs
-- https://github.com/cartographer-project/cartographer_ros - ROS2 integration, code
 
 Handling maps using Map Server:
 - https://automaticaddison.com/building-a-map-of-the-environment-using-slam-ros-2-jazzy/ (scroll down to "*Save the Map*")
