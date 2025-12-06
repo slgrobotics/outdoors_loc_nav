@@ -122,7 +122,8 @@ SLAM Toolbox:
 
 Cartographer:
 - https://google-cartographer.readthedocs.io/en/latest/index.html
-- https://google-cartographer-ros.readthedocs.io/en/latest/index.html  - ROS2 inetgration
+- https://google-cartographer-ros.readthedocs.io/en/latest/index.html  - ROS2 integration, docs
+- https://github.com/cartographer-project/cartographer_ros - ROS2 integration, code
 
 Handling maps using Map Server:
 - https://automaticaddison.com/building-a-map-of-the-environment-using-slam-ros-2-jazzy/ (scroll down to "*Save the Map*")
