@@ -1,8 +1,13 @@
 
 initial_pose_serv:
   ros__parameters:
-    initial_pose:
+    topics:
+      imu: imu/data
+      odom: odometry/local
+      initialpose: initialpose
+    initial_pose:         # default initial pose values to complement IMU yaw if no RViz input
       x: 0.0
       y: 0.0
-    cycle_period: 1.0     # cycling period for the state machine
-    #use_imu_yaw: false    # if false, wait for RViz "2D Pose Estimate". Default true
+    cycle_period: 1.0     # cycling period for the state machine, seconds
+    #idle_period: 60.0     # idle period before re-sending the memorized initial pose, seconds. Disabled by default (0.0)
+    #use_imu_yaw: false   # if false, wait for RViz "2D Pose Estimate". Default true

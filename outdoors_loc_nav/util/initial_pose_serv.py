@@ -4,6 +4,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Imu
+from nav_msgs.msg import Odometry
 import tf_transformations
 from cartographer_ros_msgs.srv import GetTrajectoryStates, StartTrajectory, FinishTrajectory
 import math
@@ -29,10 +30,16 @@ class InitialPosePub(Node):
         # ----- parameters -----
         self.declare_parameter('config_dir', '')  # required
         self.declare_parameter('config_base', 'cartographer_lds_2d.lua')
+        self.declare_parameter('topics.imu', 'imu/data')
+        self.declare_parameter('topics.odom', 'odometry/local')
+        self.declare_parameter('topics.initialpose', 'initialpose')
         self.declare_parameter('initial_pose.x', 0.0)
         self.declare_parameter('initial_pose.y', 0.0)
         self.declare_parameter('cycle_period', 1.0)  # how often timer wakes up to check preconditions
         self.declare_parameter('use_imu_yaw', True)  # if false, wait for RViz "2D Pose Estimate"
+        self.declare_parameter('idle_period', 0.0)   # how long IDLE waits before repeating the pose set cycle. Disabled by default (0.0)
+
+        self.idle_timeout_sec = float(self.get_parameter('idle_period').value)
 
         self.config_dir = self.get_parameter('config_dir').value
         self.config_base = self.get_parameter('config_base').value
@@ -49,6 +56,9 @@ class InitialPosePub(Node):
         # ----- runtime state -----
         self.latest_imu_yaw = None    # updated from IMU
         self.latest_pose_msg = None   # updated from /initialpose (RViz "2D Pose Estimate")
+        self.latest_odom_x = None     # updated continuously from /odometry_local
+        self.latest_odom_y = None
+        self._idle_timer = None       # timer handle will be created on first IDLE entry
 
         self.state = "BEGINNING"       # BEGINNING -> SERV_WAIT -> TRAJ_QUERY -> TRAJ_FINISH -> TRAJ_START -> IDLE -> SERV_WAIT
 
@@ -58,7 +68,7 @@ class InitialPosePub(Node):
             self.get_logger().info("FYI: use_imu_yaw is true, will take orientation from IMU")
             self.imu_subscription = self.create_subscription(
                 Imu,
-                '/imu/data',
+                self.get_parameter('topics.imu').value,
                 self.imu_callback,
                 10
             )
@@ -73,10 +83,19 @@ class InitialPosePub(Node):
 
         self.pose_subscription = self.create_subscription(
             PoseWithCovarianceStamped,
-            '/initialpose',
+            self.get_parameter('topics.initialpose').value,
             self.pose_estimate_callback,
             initialpose_qos
         )
+
+        # local odometry (used ONLY when IDLE timer expires)
+        if self.idle_timeout_sec > 0:
+            self.odom_subscription = self.create_subscription(
+                Odometry,
+                self.get_parameter('topics.odom').value,
+                self.odom_callback,
+                10
+            )
 
         # ----- Cartographer service clients -----
         #
@@ -139,6 +158,11 @@ class InitialPosePub(Node):
         if self._have_pose() and self.state == "IDLE":
             self.state = "SERV_WAIT"   # check services and get to work on the next timer tick
 
+    def odom_callback(self, msg: Odometry) -> None:
+        """Continuously track latest local odometry, but do NOT apply it immediately."""
+        self.latest_odom_x = msg.pose.pose.position.x
+        self.latest_odom_y = msg.pose.pose.position.y
+
     # ------------------------------------------------------------
     # Timer for the State Machine
     # ------------------------------------------------------------
@@ -188,8 +212,16 @@ class InitialPosePub(Node):
 
         elif self.state == "IDLE":
             # waiting for RViz /initialpose ("2D Pose Estimate")
+            # also wake up periodically to re-align Cartographer
+
             #self.get_logger().info("SM: IDLE")
-            pass
+
+            if self.idle_timeout_sec > 0 and self._idle_timer is None:
+                self.get_logger().info(f"SM: IDLE - starting {self.idle_timeout_sec} seconds wake-up timer")
+                self._idle_timer = self.create_timer(
+                    self.idle_timeout_sec,
+                    self._idle_timeout_callback
+                )
 
     # ------------------------------------------------------------
     # Pose Helpers
@@ -248,6 +280,17 @@ class InitialPosePub(Node):
         qx, qy, qz, qw = tf_transformations.quaternion_from_euler(0, 0, self.latest_imu_yaw)
 
         return self.latest_x, self.latest_y, qx, qy, qz, qw
+
+    def _idle_timeout_callback(self):
+        """Wake up from IDLE and repeat the service cycle using last known pose."""
+        self.get_logger().info("SM: IDLE timeout expired - restarting service cycle")
+
+        # latch current odometry ONLY at wake-up time
+        if self.latest_odom_x is not None and self.latest_odom_y is not None:
+            self.latest_x = float(self.latest_odom_x)
+            self.latest_y = float(self.latest_odom_y)
+
+        self.state = "SERV_WAIT"
 
     # ------------------------------------------------------------
     # Service Calls (Async)
