@@ -1,6 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, LogInfo
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, EqualsSubstitution, NotEqualsSubstitution
+from launch.conditions import IfCondition
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import SetParameter
 from launch_ros.actions import Node
@@ -72,15 +73,19 @@ def generate_launch_description():
             SetParameter('use_sim_time', use_sim_time),
 
             LogInfo(msg=[
-                '============ [outdoors_loc_nav] starting Map Server  namespace="', namespace,
+                '============ [outdoors_loc_nav]  starting Map Server  namespace="', namespace,
                 '"  use_sim_time=', use_sim_time,
             ]),
 
             LogInfo(msg=[
-                'params=', params_file,
-                '  map=', map_yaml_file
+                '============ [outdoors_loc_nav]  Map Server params file: ', params_file,
             ]),
 
+            LogInfo(msg=[
+                '============ [outdoors_loc_nav]  map="', map_yaml_file, '" (if empty - default: ', map_yaml_file_default, ')'
+            ]),
+
+            # If the 'map' argument is an empty string, use the packaged default map YAML
             Node(
                 package='nav2_map_server',
                 executable='map_server',
@@ -92,6 +97,20 @@ def generate_launch_description():
                 parameters=[{'yaml_filename': map_yaml_file}],
                 arguments=['--ros-args', '--log-level', log_level, '--params-file', params_file],
                 remappings=remappings,
+                condition=IfCondition(NotEqualsSubstitution(map_yaml_file, '')),
+            ),
+            Node(
+                package='nav2_map_server',
+                executable='map_server',
+                name='map_server',
+                namespace=namespace,
+                output='screen',
+                respawn=True,
+                respawn_delay=2.0,
+                parameters=[{'yaml_filename': map_yaml_file_default}],
+                arguments=['--ros-args', '--log-level', log_level, '--params-file', params_file],
+                remappings=remappings,
+                condition=IfCondition(EqualsSubstitution(map_yaml_file, '')),
             ),
             Node(
                 package='nav2_lifecycle_manager',
