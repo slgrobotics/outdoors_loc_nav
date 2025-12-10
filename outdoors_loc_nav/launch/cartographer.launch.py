@@ -99,7 +99,7 @@ def generate_launch_description():
                 ('odom','odometry/local'),   # IMU + wheel odometry "ekf_filter_node_odom" output
                 #
                 # Cartographer works better with ONLY lidar scan and local odometry.
-                # Other remappings below is just for academic interest
+                # Other remappings below are just for academic interest
                 #
                 #('odom','odometry/global'), # "ekf_filter_node_navsat" output
                 #('odom','diff_cont/odom'),  # direct wheels odometry output
@@ -115,9 +115,7 @@ def generate_launch_description():
             name='cartographer_occupancy_grid_node',
             output='screen',
             parameters=[{
-                'use_sim_time': use_sim_time,
-                #'resolution': resolution,
-                #'publish_period_sec': publish_period_sec
+                'use_sim_time': use_sim_time
             }],
             arguments=['-resolution', resolution,
                        '-publish_period_sec', publish_period_sec])
