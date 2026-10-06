@@ -23,7 +23,6 @@ setup(
     maintainer_email='slg@quakemap.com',
     description='Outdoor GPS Localization: Map Server or SLAM Toolbox bringup',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'orientation_service = outdoors_loc_nav.util.orientation_service:main',
