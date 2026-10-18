@@ -14,6 +14,18 @@ You need to launch *your robot* and *navigation stack* separately.
 It would also publish a *odom → base_link* transform, which is important for the rest of the system.
 That’s the typical setup for indoor navigation. This package, except when using Cartographer, neither uses nor depends on that EKF, though your robot relies on it indoors.
 
+-------------------------
+
+### Contents
+
+- [How to use](#how-to-use)
+- [ROS 2 Lyrical and namespaces](#ros-2-lyrical-and-namespaces)
+- [Nodes and Topics](#nodes-and-topics)
+- [Testing](#testing)
+- [On a real robot](#on-a-real-robot)
+- [Why Use the Map Server?](#why-use-the-map-server)
+- [Useful links](#useful-links)
+
 ### How to use
 
 Clone the repository to your robot's workspace, build (see example [below](https://github.com/slgrobotics/outdoors_loc_nav/blob/main/README.md#testing)).
