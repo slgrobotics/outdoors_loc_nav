@@ -45,6 +45,23 @@ and there is [no easy way](https://github.com/slgrobotics/outdoors_loc_nav/issue
 - To change robot's orientation in Gazebo, look for '*initial_yaw*' launch argument in [robots/dragger/launch/dragger.drive.launch.py](https://github.com/slgrobotics/articubot_one/blob/dev/robots/dragger/launch/dragger.drive.launch.py)
 - The "*orientation_initializer.launch.py*" is my attempt to solve the Cartographer's initial orientation problem by calling its *trajectory services*. While it seems to work, it is still Work in Progress. 
 
+### ROS 2 Lyrical and namespaces
+
+The AMCL launch starts its own map server and lifecycle manager, so it does not
+rely on distribution-specific lifecycle behavior in Nav2's localization launch.
+The map-server mode also manages its own lifecycle.
+
+The `namespace` argument selects the absolute robot namespace (`dragger` and
+`/dragger` both select `/dragger`; the default selects `/`). It can be used from
+Dragger's enclosing namespace wrapper without duplicating the namespace.
+Parameter files use node-specific wildcard selectors to work at either level.
+Sensor topics, Cartographer services, and TF topics resolve within that namespace;
+the robot's sensor and local odometry bringup must use the same namespace and TF topics.
+Frame IDs and GPS/EKF tuning are unchanged.
+
+The Cartographer initializer waits for each service response before continuing,
+checks Cartographer's status codes, and uses the selected simulation clock.
+
 ### Nodes and Topics
 
 This is how [rqt_graph](https://roboticsbackend.com/rqt-graph-visualize-and-debug-your-ros-graph/) shows relationships between the launched *localization nodes* and *topics*:

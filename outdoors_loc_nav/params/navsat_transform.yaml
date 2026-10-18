@@ -3,7 +3,7 @@
 # See https://github.com/cra-ros-pkg/robot_localization/blob/ros2/params/navsat_transform.yaml
 #     https://github.com/slgrobotics/articubot_one/wiki/Outdoors-Package-Template
 
-navsat_transform:
+/**/navsat_transform:
   ros__parameters:
 
 # Frequency of the main run loop

@@ -6,7 +6,7 @@
 # meld /opt/ros/jazzy/share/slam_toolbox/config/mapper_params_online_async.yaml ~/robot_ws/src/articubot_one/robots/dragger/config/slam_toolbox_params.yaml
 #
 
-slam_toolbox:
+/**/slam_toolbox:
   ros__parameters:
 
     # Plugin params
@@ -21,7 +21,7 @@ slam_toolbox:
     odom_frame: odom
     map_frame: map
     base_frame: base_footprint
-    scan_topic: /scan
+    scan_topic: scan
     use_map_saver: true
     mode: mapping #localization
 

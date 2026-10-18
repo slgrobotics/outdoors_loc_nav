@@ -1,16 +1,17 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.actions import DeclareLaunchArgument, LogInfo, SetLaunchConfiguration, GroupAction
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, EqualsSubstitution
+from launch.conditions import IfCondition
 from launch_ros.substitutions import FindPackageShare
+from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 #
 # AMCL launch file for outdoors localization.
 #
-# Uses Nav2 AMCL localizer with an empty map. Provides TF between map and odom frames.
+# Runs AMCL alongside the GPS EKF; AMCL TF broadcasting stays disabled.
 #
-# The localizer also launches map_server node to serve the map and functions as a map_saver.
+# Also launches the map server and manages both node lifecycles.
 #  
 
 def generate_launch_description():
@@ -18,6 +19,7 @@ def generate_launch_description():
     package_name = 'outdoors_loc_nav'
 
     # Launch arguments
+    remappings = [('/tf', 'tf'), ('/tf_static', 'tf_static')]
     namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     map_file = LaunchConfiguration('map')
@@ -28,23 +30,6 @@ def generate_launch_description():
         'params',
         'amcl_params.yaml'
     ])
-
-    # Nav2 AMCL launch file
-    amcl_launch_file = PathJoinSubstitution([
-        FindPackageShare('nav2_bringup'),
-        'launch',
-        'localization_launch.py'
-    ])
-
-    # Include AMCL
-    amcl_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(amcl_launch_file),
-        launch_arguments={
-            'map': map_file,
-            'use_sim_time': use_sim_time,
-            'params_file': amcl_params_file,
-        }.items()
-    )
 
     return LaunchDescription([
 
@@ -84,6 +69,31 @@ def generate_launch_description():
             '  map=', map_file
         ]),
 
-        # ---- Include Nav2 localization launch from /opt/ros/jazzy/share/nav2_bringup/ ----
-        amcl_launch,
+        # Own these nodes and their lifecycle manager on both Jazzy and Lyrical.
+        GroupAction([
+            SetLaunchConfiguration(
+                'map', PathJoinSubstitution([
+                    FindPackageShare(package_name), 'assets', 'maps', 'empty_map.yaml']),
+                condition=IfCondition(EqualsSubstitution(map_file, ''))),
+            Node(
+                package='nav2_map_server', executable='map_server', name='map_server',
+                namespace=PathJoinSubstitution(['/', namespace]),
+                parameters=[amcl_params_file, {'yaml_filename': map_file,
+                                              'use_sim_time': use_sim_time}],
+                remappings=remappings, output='screen'),
+            Node(
+                package='nav2_amcl', executable='amcl', name='amcl',
+                namespace=PathJoinSubstitution(['/', namespace]),
+                parameters=[amcl_params_file, {'use_sim_time': use_sim_time}],
+                remappings=remappings, output='screen'),
+        ]),
+        Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager_localization',
+            namespace=PathJoinSubstitution(['/', namespace]),
+            parameters=[{'use_sim_time': use_sim_time, 'autostart': True,
+                         'node_names': ['map_server', 'amcl']}],
+            output='screen',
+        ),
     ])

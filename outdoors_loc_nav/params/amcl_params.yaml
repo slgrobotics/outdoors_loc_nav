@@ -6,7 +6,7 @@
 # meld /opt/ros/jazzy/share/nav2_bringup/params/nav2_params.yaml ~/robot_ws/src/outdoors_loc_nav/outdoors_loc_nav/params/amcl_params.yaml
 #
 
-amcl:
+/**/amcl:
   ros__parameters:
     enable_stamped_cmd_vel: true
     alpha1: 0.2
@@ -49,7 +49,7 @@ amcl:
     scan_topic: scan
 
 # see https://docs.nav2.org/configuration/packages/configuring-map-server.html
-map_saver:
+/**/map_saver:
   ros__parameters:
     enable_stamped_cmd_vel: true
     save_map_timeout: 5.0 # Default: 2.0
@@ -57,7 +57,7 @@ map_saver:
     occupied_thresh_default: 0.65 # Occupied space minimum probability threshold value for occupancy grid.
     map_subscribe_transient_local: True # Setting this to true means getting more reliable, complete map data but might take slightly longer.
 
-map_server:
+/**/map_server:
   ros__parameters:
     frame_id: map   
     topic_name: map

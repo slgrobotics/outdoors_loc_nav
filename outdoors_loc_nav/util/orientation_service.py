@@ -19,7 +19,7 @@ class OrientationService(Node):
         self.latest_yaw_deg = None
         self.subscription = self.create_subscription(
             Imu,
-            '/imu/data',
+            'imu/data',
             self.imu_callback,
             10
         )

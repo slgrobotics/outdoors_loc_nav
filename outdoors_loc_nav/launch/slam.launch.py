@@ -1,8 +1,9 @@
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, LogInfo
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, LogInfo, GroupAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
+from launch_ros.actions import PushROSNamespace, SetRemap
 
 #
 # SLAM Toolbox launch file for outdoors localization.
@@ -47,12 +48,16 @@ def generate_launch_description():
             '  params=', slam_toolbox_params_file
         ]),
 
-        IncludeLaunchDescription(
-            slam_launch,
-            launch_arguments={
-                'use_sim_time': use_sim_time,
-                'namespace': namespace,
-                'slam_params_file': slam_toolbox_params_file
-            }.items()
-        )
+        GroupAction([
+            PushROSNamespace(PathJoinSubstitution(['/', namespace])),
+            SetRemap(src='/tf', dst='tf'),
+            SetRemap(src='/tf_static', dst='tf_static'),
+            IncludeLaunchDescription(
+                slam_launch,
+                launch_arguments={
+                    'use_sim_time': use_sim_time,
+                    'slam_params_file': slam_toolbox_params_file
+                }.items()
+            )
+        ])
     ])

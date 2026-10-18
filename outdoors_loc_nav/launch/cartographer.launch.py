@@ -79,7 +79,7 @@ def generate_launch_description():
 
         Node(
             package='cartographer_ros',
-            namespace=namespace,
+            namespace=PathJoinSubstitution(['/', namespace]),
             executable='cartographer_node',
             name='cartographer_node',
             output='screen',
@@ -95,6 +95,7 @@ def generate_launch_description():
                 #'-start_trajectory_with_default_topics', 'false'  # "Enable to immediately start the first trajectory with default topics."
                 ],
             remappings=[
+                ('/tf', 'tf'), ('/tf_static', 'tf_static'),
                 ('scan','scan'),
                 ('odom','odometry/local'),   # IMU + wheel odometry "ekf_filter_node_odom" output
                 #
@@ -110,7 +111,7 @@ def generate_launch_description():
 
         Node(
             package='cartographer_ros',
-            namespace=namespace,
+            namespace=PathJoinSubstitution(['/', namespace]),
             executable='cartographer_occupancy_grid_node',
             name='cartographer_occupancy_grid_node',
             output='screen',

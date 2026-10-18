@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from pathlib import Path
 from launch_ros.substitutions import FindPackageShare
@@ -50,7 +50,7 @@ def generate_launch_description():
         #     package='outdoors_loc_nav',
         #     executable='orientation_service',
         #     name='orientation_service',
-        #     namespace=namespace,
+        #     namespace=PathJoinSubstitution(['/', namespace]),
         #     output='screen'
         # ),
 
@@ -59,8 +59,9 @@ def generate_launch_description():
             package='outdoors_loc_nav',
             executable='initial_pose_serv',
             name='initial_pose_serv',
-            namespace=namespace,
-            parameters=[initial_pose_params, {'config_dir': config_dir}, {'config_base': config_base}],
+            namespace=PathJoinSubstitution(['/', namespace]),
+            parameters=[initial_pose_params, {'config_dir': config_dir,
+                        'config_base': config_base, 'use_sim_time': use_sim_time}],
             output='screen'
         ),
     ])

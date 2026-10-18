@@ -117,9 +117,9 @@ class InitialPosePub(Node):
         #       /tf
         #
 
-        self.trajectory_states_client = self.create_client(GetTrajectoryStates, '/get_trajectory_states')
-        self.finish_client = self.create_client(FinishTrajectory, '/finish_trajectory')
-        self.start_client = self.create_client(StartTrajectory, '/start_trajectory')
+        self.trajectory_states_client = self.create_client(GetTrajectoryStates, 'get_trajectory_states')
+        self.finish_client = self.create_client(FinishTrajectory, 'finish_trajectory')
+        self.start_client = self.create_client(StartTrajectory, 'start_trajectory')
 
         self.active_trajectories = []  # convenience list of active IDs
         self._finish_index = 0
@@ -156,6 +156,10 @@ class InitialPosePub(Node):
         self.latest_pose_msg = msg
 
         if self._have_pose() and self.state == "IDLE":
+            if self._idle_timer is not None:
+                self._idle_timer.cancel()
+                self.destroy_timer(self._idle_timer)
+                self._idle_timer = None
             self.state = "SERV_WAIT"   # check services and get to work on the next timer tick
 
     def odom_callback(self, msg: Odometry) -> None:
@@ -259,7 +263,7 @@ class InitialPosePub(Node):
 
             # Optional: log covariance
             cov = self.latest_pose_msg.pose.covariance
-            if cov.any():
+            if any(cov):
                 pos_cov = cov[0] + cov[7]
                 yaw_cov = cov[35]
                 self.get_logger().info(
@@ -290,6 +294,9 @@ class InitialPosePub(Node):
             self.latest_x = float(self.latest_odom_x)
             self.latest_y = float(self.latest_odom_y)
 
+        self._idle_timer.cancel()
+        self.destroy_timer(self._idle_timer)
+        self._idle_timer = None
         self.state = "SERV_WAIT"
 
     # ------------------------------------------------------------
@@ -302,15 +309,13 @@ class InitialPosePub(Node):
 
         self.get_logger().info("IP: Calling /get_trajectory_states service...")
 
+        self.state = "TRAJ_QUERY_PENDING"
         future = self.trajectory_states_client.call_async(req)
         future.add_done_callback(self._on_get_states_done)
 
     def _on_get_states_done(self, future):
-        response = future.result()
-
+        response = self._service_response(future, 'get_trajectory_states')
         if response is None:
-            self.get_logger().error("Error: get_trajectory_states FAILED")
-            # go back to SERV_WAIT to retry later
             self.state = "SERV_WAIT"
             return
 
@@ -376,18 +381,14 @@ class InitialPosePub(Node):
             f"IP: Calling /finish_trajectory service for trajectory_id={traj_id}"
         )
 
+        self.state = "TRAJ_FINISH_PENDING"
         future = self.finish_client.call_async(req)
         future.add_done_callback(self._on_finish_done)
 
     def _on_finish_done(self, future):
-        if future.result() is None:
-            self.get_logger().error(
-                f"Error: finish_trajectory FAILED for id={self.active_trajectories[self._finish_index]}"
-            )
-            # Skip this one and continue
-            self._finish_index += 1
-            # schedule next attempt (non-blocking chain)
-            self._call_finish_trajectory()
+        if self._service_response(future, 'finish_trajectory') is None:
+            # Re-query before changing any more trajectories.
+            self.state = "SERV_WAIT"
             return
 
         traj_id = self.active_trajectories[self._finish_index]
@@ -421,18 +422,16 @@ class InitialPosePub(Node):
             f"IP: Calling /start_trajectory service with pose x={x:.2f}, y={y:.2f}, qz,qw={qz:.3f},{qw:.3f}"
         )
 
+        self.state = "TRAJ_START_PENDING"
         future = self.start_client.call_async(req)
         future.add_done_callback(self._on_start_done)
 
     def _on_start_done(self, future):
-        if future.result() is None:
-            self.get_logger().error("Error: start_trajectory service FAILED")
-            # try re-querying trajectories next cycle
-            self.state = "TRAJ_QUERY"
+        response = self._service_response(future, 'start_trajectory')
+        if response is None:
+            self.state = "SERV_WAIT"
             return
 
-        # successful start: update known trajectories with returned trajectory_id
-        response = future.result()
         try:
             new_id = int(response.trajectory_id)
             self.get_logger().info(f"OK: start_trajectory service Success (trajectory_id={new_id})")
@@ -441,6 +440,22 @@ class InitialPosePub(Node):
 
         self.get_logger().info("SM: IDLE")
         self.state = "IDLE"  # allow repeated RViz resets
+
+    def _service_response(self, future, service):
+        """Only advance the sequence after a successful Cartographer response."""
+        try:
+            response = future.result()
+        except Exception as exc:
+            self.get_logger().error(f"{service} failed: {exc}")
+            return None
+        if response is None:
+            self.get_logger().error(f"{service} returned no response")
+            return None
+        if response.status.code != 0:
+            self.get_logger().error(
+                f"{service} failed ({response.status.code}): {response.status.message}")
+            return None
+        return response
 
 
 def main(args=None):

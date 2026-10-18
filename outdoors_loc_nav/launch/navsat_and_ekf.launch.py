@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from pathlib import Path
@@ -59,10 +59,12 @@ def generate_launch_description():
             package='robot_localization',
             executable='navsat_transform_node',
             name='navsat_transform',
+            namespace=PathJoinSubstitution(['/', namespace]),
             output='screen',
             parameters=[params / 'navsat_transform.yaml',
                         {'use_sim_time': use_sim_time}],
             remappings=[
+                ('/tf', 'tf'), ('/tf_static', 'tf_static'),
                 ('imu', 'imu/data'),                # sensor IMU input
                 ('gps/fix', 'gps/fix'),             # raw GPS fix
                 ('odometry/filtered', 'odometry/global'),  # odom input. "local" here will cause slow drift from initial position
@@ -81,10 +83,12 @@ def generate_launch_description():
             package='robot_localization',
             executable='ekf_node',
             name='ekf_filter_node_navsat',
+            namespace=PathJoinSubstitution(['/', namespace]),
             output='screen',
             parameters=[params / 'ekf_navsat_params.yaml',
                         {'use_sim_time': use_sim_time}],
             remappings=[
+                ('/tf', 'tf'), ('/tf_static', 'tf_static'),
                 ('odometry/filtered', 'odometry/global')
             ]
         ),
