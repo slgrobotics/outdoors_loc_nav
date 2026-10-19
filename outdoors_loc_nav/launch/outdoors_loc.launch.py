@@ -58,7 +58,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'localizer',
             default_value='map_server',
-            description='choose localizer: slam, amcl, or map_server'
+            description='choose localizer: slam_toolbox, amcl, cartographer or map_server'
         ),
 
         DeclareLaunchArgument(
