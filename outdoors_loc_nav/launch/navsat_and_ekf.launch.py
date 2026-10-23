@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from pathlib import Path
 
@@ -29,6 +30,7 @@ def generate_launch_description():
 
     namespace = LaunchConfiguration('namespace', default='')
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
+    global_ekf_publish_tf = LaunchConfiguration('global_ekf_publish_tf')
 
     pkg = FindPackageShare('outdoors_loc_nav').find('outdoors_loc_nav')
     params = Path(pkg) / 'params'
@@ -45,6 +47,12 @@ def generate_launch_description():
             'namespace',
             default_value='',
             description='Top-level namespace for multi-robot deployment'
+        ),
+
+        DeclareLaunchArgument(
+            'global_ekf_publish_tf',
+            default_value='true',
+            description='Publish global EKF map -> odom TF; disable when Cartographer owns it'
         ),
 
         LogInfo(msg=[
@@ -86,7 +94,8 @@ def generate_launch_description():
             namespace=PathJoinSubstitution(['/', namespace]),
             output='screen',
             parameters=[params / 'ekf_navsat_params.yaml',
-                        {'use_sim_time': use_sim_time}],
+                        {'use_sim_time': use_sim_time,
+                         'publish_tf': ParameterValue(global_ekf_publish_tf, value_type=bool)}],
             remappings=[
                 ('/tf', 'tf'), ('/tf_static', 'tf_static'),
                 ('odometry/filtered', 'odometry/global')

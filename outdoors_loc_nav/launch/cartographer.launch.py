@@ -104,7 +104,7 @@ def generate_launch_description():
                 #
                 #('odom','odometry/global'), # "ekf_filter_node_navsat" output
                 #('odom','diff_cont/odom'),  # direct wheels odometry output
-                ('imu','imu/data'),          # when "TRAJECTORY_BUILDER_2D.use_imu_data=true"
+                ('imu','imu/data'),          # native heading startup, also continuous IMU input if enabled
                 ('fix','gps/filtered'),      # when "use_nav_sat=true", "navsat_transform" node output
                 ]
             ),

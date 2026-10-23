@@ -45,19 +45,26 @@ options = {
   map_frame = "map",
 
   -- Cartographer should track motion in IMU frame (imu_link), when 'use_imu_data=true'
-  -- Otherwise use this frame for map positioning
-  tracking_frame = "base_footprint", -- places map at footprint level
+  -- With continuous IMU input disabled, track the robot footprint.
+  -- Native startup heading still accounts for the IMU mounting rotation.
+  tracking_frame = "base_footprint",
 
-  -- PUBLISH POSE IN BASE FRAME
-  published_frame = "base_link",
+  -- The local EKF owns odom -> base_link; Cartographer owns map -> odom.
+  published_frame = "odom",
 
   odom_frame = "odom",
 
-  -- We already publish odom->base_link via EKF, so:
-  provide_odom_frame = true,
+  provide_odom_frame = false,
 
   -- publish a pure 2D pose for Nav2
   publish_frame_projected_to_2d = true,
+  projection_frame = "base_footprint",
+
+  -- Fresh-map startup only; requires a valid ENU orientation on imu/data.
+  initialize_map_from_imu = true,
+  imu_heading_offset_rad = 0.0,
+  imu_heading_timeout_sec = 30.0,
+  imu_heading_max_age_sec = 1.0,
 
 -- ================================
 --     SENSOR SOURCES

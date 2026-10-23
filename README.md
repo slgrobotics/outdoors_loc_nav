@@ -52,10 +52,62 @@ or, include (see [Dragger's launch file](https://github.com/slgrobotics/articubo
 **Note:**
 - *Map Server* and *SLAM Toolbox* work fine.
 - *AMCL* and *Cartographer* may need work. If you know how to fix it, please submit a pull request.
-- for *Cartographer* you MUST start the robot in East (ENU "yaw=0") orientation. Cartographer does not query initial pose,
-and there is [no easy way](https://github.com/slgrobotics/outdoors_loc_nav/issues/1) to set it.
-- To change robot's orientation in Gazebo, look for '*initial_yaw*' launch argument in [robots/dragger/launch/dragger.drive.launch.py](https://github.com/slgrobotics/articubot_one/blob/dev/robots/dragger/launch/dragger.drive.launch.py)
-- The "*orientation_initializer.launch.py*" is my attempt to solve the Cartographer's initial orientation problem by calling its *trajectory services*. While it seems to work, it is still Work in Progress. 
+- Cartographer uses the modified Lyrical fork's native IMU heading initialization for fresh 2D maps. The robot can start at any heading when `imu/data` supplies a valid ENU compass orientation.
+
+### Cartographer startup and TF ownership
+
+The default Lua configuration enables `initialize_map_from_imu` with a 30-second
+timeout and a 1-second maximum IMU age. Keep the robot stationary until Cartographer
+logs **Initial map heading**. No trajectory or scan subscriptions are created while
+it waits; invalid or missing orientation causes startup to fail after the timeout.
+The IMU must publish a normalized ENU quaternion with matching timestamps, and TF
+from its message frame to `tracking_frame` must be available at that timestamp.
+An arbitrary gyro startup yaw cannot provide compass alignment.
+
+`imu_heading_offset_rad` defaults to zero. Set it consistently with the desired
+map axes and the IMU's magnetic declination correction; avoid applying the same
+correction twice. Check alignment against the NavSat heading configuration.
+This option does not convert NED orientation to ENU.
+
+Continuous IMU input remains disabled (`TRAJECTORY_BUILDER_2D.use_imu_data = false`),
+so `tracking_frame` remains `base_footprint`. Native startup uses IMU orientation
+independently and accounts for mounting rotation. If continuous IMU input is
+enabled, use a tracking frame colocated with the IMU, typically `imu_link`.
+
+TF ownership in Cartographer mode is:
+- The robot's local EKF publishes `odom -> base_link` and `odometry/local`.
+- Cartographer publishes `map -> odom` (`published_frame = "odom"`,
+  `provide_odom_frame = false`).
+- Ground projection uses `base_footprint`, keeping the footprint at map z=0
+  even when the EKF places base_link at odom z=0. The robot must provide the
+  footprint mounting TF, available at scan timestamps.
+- The global GPS EKF continues publishing `odometry/global`, with TF publication
+  disabled by the top-level launch. Other localizer modes retain its existing
+  TF behavior. Standalone NavSat/EKF launch defaults to publishing TF; pass
+  `global_ekf_publish_tf:=false` when another node owns `map -> odom`.
+
+The old orientation initializer is no longer launched automatically. Its trajectory
+finish/start sequence must not run alongside native fresh-map initialization.
+Its explicit service/RViz reset workflow remains available for separate use.
+Native heading initialization supports fresh maps only: disable it for saved-state
+localization, manual trajectory startup, or another configured initial pose. Saved
+map poses must be supplied in that map's coordinates through trajectory services.
+The `map` argument selects YAML maps for AMCL/map-server modes; it does not load a
+Cartographer `.pbstream`.
+
+Select a robot-specific configuration through the top-level launch:
+
+```bash
+ros2 launch outdoors_loc_nav outdoors_loc.launch.py localizer:=cartographer \
+  cartographer_config_dir:=/absolute/path/to/robot/config \
+  configuration_basename:=cartographer_lds_2d.lua
+```
+
+The Lua startup/projection options require the updated Cartographer and
+Cartographer ROS overlay to be built and sourced before launching this package.
+After rebuilding, restart Cartographer and dependent navigation/visualization nodes.
+Validate starts facing North and West, footprint height at zero, one publisher per
+TF edge, and startup failure when no valid IMU orientation arrives.
 
 ### ROS 2 Lyrical and namespaces
 
@@ -71,8 +123,8 @@ Sensor topics, Cartographer services, and TF topics resolve within that namespac
 the robot's sensor and local odometry bringup must use the same namespace and TF topics.
 Frame IDs and GPS/EKF tuning are unchanged.
 
-The Cartographer initializer waits for each service response before continuing,
-checks Cartographer's status codes, and uses the selected simulation clock.
+The optional legacy Cartographer initializer waits for each service response before
+continuing, checks status codes, and uses the selected simulation clock.
 
 ### Nodes and Topics
 
