@@ -190,6 +190,50 @@ With this setup, I can set a goal anywhere within that area, and Nav2 will initi
 
 ----------------------------
 
+### Conservative GPS weighting on Dragger
+
+Dragger's live sensor launcher sets the NMEA driver's `epe_quality1` to `8.0`
+instead of its default `4.0`. For standard GGA fixes without receiver-provided
+GST errors, the driver computes horizontal variance as `(HDOP * EPE)^2`.
+This doubles the reported standard deviation and quadruples variance, reducing
+GPS influence without changing coordinates or update rate. GST error estimates
+override this fallback; verify `/gps/fix` covariance after restarting. Other
+robots and Dragger's simulator retain their existing driver settings.
+
+The global EKF uses `odom1_pose_rejection_threshold: 3.0` on `odometry/gps`.
+This shared outdoor configuration rejects exceptional GPS innovations using
+Mahalanobis distance and the combined measurement/prediction uncertainty; it is
+not a three-meter cutoff. With Dragger's recorded horizontal variance increased
+from approximately 72-88 to 288-350 m², the cutoff is roughly 51-56 m when
+prediction uncertainty is small. It grows as prediction uncertainty grows.
+Smooth GPS wandering can still pass, and valid large corrections after an
+outage can also be rejected. Compare stationary drift, driving response, and
+GPS reacquisition before relying on the new tuning.
+
+After deploying both packages to the robot, rebuild and restart the full live
+launch (these settings are read at startup):
+
+```bash
+cd /home/ros/robot_ws
+colcon build --packages-select articubot_one outdoors_loc_nav
+source install/setup.bash
+ros2 launch articubot_one dragger.launch.py
+```
+
+Check the running values in another sourced terminal:
+
+```bash
+ros2 param get /nmea_navsat_driver epe_quality1
+ros2 param get /ekf_filter_node_navsat odom1_pose_rejection_threshold
+ros2 topic echo /gps/fix --once
+```
+
+Expect `8.0` and `3.0`. At similar HDOP to the baseline recording, expect
+horizontal GPS covariance around 288-350 m² unless GST supplies the errors.
+For a baseline comparison, restore `epe_quality1` to `4.0` and remove the GPS
+rejection threshold, then rebuild and restart. Local EKF and IMU tuning are
+unchanged.
+
 ### Useful links
 
 ROS2 and GPS data:

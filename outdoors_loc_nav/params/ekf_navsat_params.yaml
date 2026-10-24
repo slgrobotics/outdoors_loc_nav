@@ -64,6 +64,11 @@
 #    odom1_nodelay: false
     odom1_differential: false
     odom1_relative: false
+    # Reject exceptional GPS position innovations using the combined predicted
+    # and measurement covariance. This is a Mahalanobis distance, NOT meters.
+    # With Dragger's inflated GPS variance (about 288-350 m^2 per axis), 3.0
+    # corresponds to roughly 51-56 m if predicted uncertainty is small.
+    odom1_pose_rejection_threshold: 3.0
 
     # We trust IMU compass data (yaw) to be accurate:
     imu0: imu/data
